@@ -1,0 +1,464 @@
+{
+  "info": {
+    "name": "LeadNest API",
+    "description": "Complete API collection for LeadNest MVP testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_email",
+      "value": "test@contractor.com",
+      "type": "string"
+    },
+    {
+      "key": "search_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Registration successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.email).to.eql(pm.variables.get('user_email'));",
+                  "    pm.expect(response.subscription_status).to.eql('trial');",
+                  "    pm.expect(response.trial_ends_at).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"testpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.access_token).to.not.be.null;",
+                  "    pm.expect(response.token_type).to.eql('bearer');",
+                  "    pm.variables.set('access_token', response.access_token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"testpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Get user successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.email).to.eql(pm.variables.get('user_email'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lead Generation",
+      "item": [
+        {
+          "name": "Create Search - Roofing Austin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Search creation successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.location).to.eql('Austin, TX');",
+                  "    pm.expect(response.trade).to.eql('roofing');",
+                  "    pm.expect(response.results_count).to.be.greaterThan(0);",
+                  "    pm.variables.set('search_id', response.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Austin, TX\",\n  \"trade\": \"roofing\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/searches",
+              "host": ["{{base_url}}"],
+              "path": ["searches"]
+            }
+          }
+        },
+        {
+          "name": "Create Search - Solar Phoenix",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Phoenix, AZ\",\n  \"trade\": \"solar\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/searches",
+              "host": ["{{base_url}}"],
+              "path": ["searches"]
+            }
+          }
+        },
+        {
+          "name": "Get Search History",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Get searches successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    pm.expect(response.length).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/searches",
+              "host": ["{{base_url}}"],
+              "path": ["searches"]
+            }
+          }
+        },
+        {
+          "name": "Get Search Leads",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Get leads successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    if (response.length > 0) {",
+                  "        pm.expect(response[0]).to.have.property('business_name');",
+                  "        pm.expect(response[0]).to.have.property('ai_email_message');",
+                  "        pm.expect(response[0]).to.have.property('quality_score');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/searches/{{search_id}}/leads",
+              "host": ["{{base_url}}"],
+              "path": ["searches", "{{search_id}}", "leads"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Export & Analytics",
+      "item": [
+        {
+          "name": "Create Export Record",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Export creation successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.export_type).to.eql('csv');",
+                  "    pm.expect(response.leads_count).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"search_id\": {{search_id}},\n  \"export_type\": \"csv\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/exports",
+              "host": ["{{base_url}}"],
+              "path": ["exports"]
+            }
+          }
+        },
+        {
+          "name": "Download CSV Export",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('CSV download successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+                  "    pm.expect(pm.response.text()).to.include('Business Name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exports/{{search_id}}/csv",
+              "host": ["{{base_url}}"],
+              "path": ["exports", "{{search_id}}", "csv"]
+            }
+          }
+        },
+        {
+          "name": "Get Dashboard Stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Dashboard stats successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('total_searches');",
+                  "    pm.expect(response).to.have.property('total_leads');",
+                  "    pm.expect(response).to.have.property('total_exports');",
+                  "    pm.expect(response).to.have.property('trial_days_left');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/dashboard/stats",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "stats"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Edge Cases & Error Handling",
+      "item": [
+        {
+          "name": "Create Search - Invalid Trade",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should still create search with unknown trade', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Test City\",\n  \"trade\": \"unknown_trade_type\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/searches",
+              "host": ["{{base_url}}"],
+              "path": ["searches"]
+            }
+          }
+        },
+        {
+          "name": "Access Protected Route Without Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 401 without token', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/searches",
+              "host": ["{{base_url}}"],
+              "path": ["searches"]
+            }
+          }
+        },
+        {
+          "name": "Login with Invalid Credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 401 for invalid credentials', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.detail).to.include('Incorrect email or password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nonexistent@example.com\",\n  \"password\": \"wrongpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

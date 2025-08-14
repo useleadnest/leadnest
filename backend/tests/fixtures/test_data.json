@@ -1,0 +1,101 @@
+{
+  "mock_users": [
+    {
+      "email": "john@roofingpro.com",
+      "password": "testpass123",
+      "subscription_status": "trial",
+      "is_admin": false
+    },
+    {
+      "email": "sarah@solarpros.com", 
+      "password": "testpass123",
+      "subscription_status": "active",
+      "is_admin": false
+    },
+    {
+      "email": "admin@leadnest.com",
+      "password": "adminpass123",
+      "subscription_status": "active",
+      "is_admin": true
+    }
+  ],
+  "mock_searches": [
+    {
+      "location": "Austin, TX",
+      "trade": "roofing",
+      "results_count": 25
+    },
+    {
+      "location": "Phoenix, AZ", 
+      "trade": "solar",
+      "results_count": 18
+    },
+    {
+      "location": "Miami, FL",
+      "trade": "pool",
+      "results_count": 32
+    }
+  ],
+  "mock_yelp_response": {
+    "businesses": [
+      {
+        "id": "roof-pros-austin",
+        "name": "Austin Roof Pros",
+        "phone": "+15125551234",
+        "url": "https://www.yelp.com/biz/austin-roof-pros",
+        "rating": 4.5,
+        "review_count": 87,
+        "categories": [{"title": "Roofing"}],
+        "location": {
+          "address1": "123 Main St",
+          "city": "Austin",
+          "state": "TX", 
+          "zip_code": "78701"
+        }
+      },
+      {
+        "id": "elite-roofing-austin",
+        "name": "Elite Roofing Solutions",
+        "phone": "+15125555678",
+        "url": "https://www.yelp.com/biz/elite-roofing",
+        "rating": 4.8,
+        "review_count": 156,
+        "categories": [{"title": "Roofing"}, {"title": "Contractors"}],
+        "location": {
+          "address1": "456 Oak Ave",
+          "city": "Austin", 
+          "state": "TX",
+          "zip_code": "78702"
+        }
+      }
+    ]
+  },
+  "mock_leads": [
+    {
+      "business_name": "Austin Roof Pros",
+      "phone": "+15125551234",
+      "email": "info@austinroofpros.com",
+      "website": "https://austinroofpros.com",
+      "address": "123 Main St, Austin, TX 78701",
+      "category": "Roofing",
+      "rating": 4.5,
+      "review_count": 87,
+      "quality_score": 0.85
+    },
+    {
+      "business_name": "Elite Roofing Solutions", 
+      "phone": "+15125555678",
+      "email": "contact@eliteroofing.com",
+      "website": "https://eliteroofing.com",
+      "address": "456 Oak Ave, Austin, TX 78702",
+      "category": "Roofing, Contractors",
+      "rating": 4.8,
+      "review_count": 156,
+      "quality_score": 0.92
+    }
+  ],
+  "mock_ai_messages": {
+    "email": "Hey there! I found Austin Roof Pros online and was impressed by your 4.5-star rating. I'd love to chat about sending you 5-10 exclusive roofing leads per month from homeowners in your area. Would you be interested in a quick call to discuss how this could help grow your business?",
+    "sms": "Hi! Saw Austin Roof Pros online - interested in 5-10 extra roofing leads/month? Quick chat?"
+  }
+}

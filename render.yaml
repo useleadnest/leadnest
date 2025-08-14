@@ -1,0 +1,99 @@
+services:
+  - type: web
+    name: leadnest-api
+    runtime: python
+    plan: starter
+    region: oregon
+    branch: main
+    rootDir: backend
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python -c "from database import create_tables; create_tables()"
+    startCommand: |
+      uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2 --log-level info
+    healthCheckPath: /health
+    autoDeploy: true
+    disk:
+      name: leadnest-disk
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: leadnest-db
+          property: connectionString
+      - key: SECRET_KEY
+        value: leadnest-super-secret-jwt-key-change-this-in-production-32-chars-minimum-length
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 30
+      - key: FRONTEND_URL
+        value: https://useleadnest.com
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: YELP_API_KEY
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+    domains:
+      - leadnest-api.onrender.com
+    
+  # API Documentation Site
+  - type: web
+    name: leadnest-docs
+    runtime: static
+    branch: main
+    buildCommand: |
+      mkdir -p public
+      cat > public/index.html << 'EOF'
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <title>LeadNest API Documentation</title>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css" />
+          <style>
+            .swagger-ui .topbar { display: none; }
+            .swagger-ui .info hgroup.main h2 { color: #3b82f6; }
+          </style>
+      </head>
+      <body>
+          <div id="swagger-ui"></div>
+          <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js"></script>
+          <script>
+          SwaggerUIBundle({
+              url: "https://leadnest-api.onrender.com/openapi.json",
+              dom_id: "#swagger-ui",
+              presets: [
+                  SwaggerUIBundle.presets.apis,
+                  SwaggerUIBundle.presets.standalone
+              ],
+              layout: "StandaloneLayout",
+              deepLinking: true,
+              showExtensions: true,
+              showCommonExtensions: true
+          });
+          </script>
+      </body>
+      </html>
+      EOF
+    staticPublishPath: ./public
+    domains:
+      - leadnest-docs.onrender.com
+
+databases:
+  - name: leadnest-db
+    databaseName: leadnest_prod
+    user: leadnest_user
+    plan: starter
+    region: oregon
+    postgresMajorVersion: 15
