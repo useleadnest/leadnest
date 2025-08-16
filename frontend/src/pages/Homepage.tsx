@@ -123,9 +123,9 @@ const Homepage: React.FC = () => {
             © 2025 LeadNest. All rights reserved.
           </p>
           <div className="space-x-6">
-            <a href="#" className="text-gray-400 hover:text-white transition-colors">Privacy</a>
-            <a href="#" className="text-gray-400 hover:text-white transition-colors">Terms</a>
-            <a href="#" className="text-gray-400 hover:text-white transition-colors">Support</a>
+            <button className="text-gray-400 hover:text-white transition-colors">Privacy</button>
+            <button className="text-gray-400 hover:text-white transition-colors">Terms</button>
+            <button className="text-gray-400 hover:text-white transition-colors">Support</button>
           </div>
         </div>
       </footer>
