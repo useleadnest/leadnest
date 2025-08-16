@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
-import { authAPI } from '../services/api';
+import { authAPI } from '../lib/api';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, businessName?: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
 }
@@ -29,40 +29,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('ln_token');
     if (token) {
-      checkAuth();
-    } else {
-      setLoading(false);
+      // Try to decode user info from token
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const now = Date.now() / 1000;
+        
+        if (payload.exp && payload.exp > now) {
+          setUser({
+            id: payload.user_id,
+            email: payload.sub,
+            business_id: payload.business_id,
+          });
+        } else {
+          localStorage.removeItem('ln_token');
+        }
+      } catch (error) {
+        localStorage.removeItem('ln_token');
+      }
     }
+    setLoading(false);
   }, []);
 
-  const checkAuth = async () => {
-    try {
-      const userData = await authAPI.getMe();
-      setUser(userData);
-    } catch (error) {
-      localStorage.removeItem('token');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const login = async (email: string, password: string) => {
-    const response = await authAPI.login({ email, password });
-    localStorage.setItem('token', response.access_token);
-    const userData = await authAPI.getMe();
-    setUser(userData);
+    const response = await authAPI.login(email, password);
+    localStorage.setItem('ln_token', response.token);
+    setUser(response.user);
   };
 
-  const register = async (email: string, password: string) => {
-    await authAPI.register({ email, password });
-    // Auto-login after registration
-    await login(email, password);
+  const register = async (email: string, password: string, businessName?: string) => {
+    const response = await authAPI.register(email, password, businessName);
+    localStorage.setItem('ln_token', response.token);
+    setUser(response.user);
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('ln_token');
     setUser(null);
   };
 

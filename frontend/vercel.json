@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "leadnest-frontend",
   "builds": [
     {
       "src": "package.json",

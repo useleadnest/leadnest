@@ -1,0 +1,122 @@
+name: Backend • Build, Deploy, Smoke
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - "backend-flask/**"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-flask
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend-flask/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Lint (optional)
+        run: |
+          pip install flake8 || true
+          flake8 . --max-line-length=120 --exclude=migrations || true
+
+      - name: Unit tests (optional)
+        run: |
+          if [ -f tests/__init__.py ] || ls tests/*.py >/dev/null 2>&1; then
+            pip install pytest
+            pytest -q
+          else
+            echo "No backend tests found — skipping."
+          fi
+
+  deploy:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Render (Option A - Deploy Hook)
+        env:
+          RENDER_DEPLOY_HOOK_BACKEND: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_BACKEND" ]; then
+            echo "Warning: RENDER_DEPLOY_HOOK_BACKEND not set, skipping deploy"
+            exit 0
+          fi
+          echo "Triggering Render deployment..."
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_BACKEND"
+          echo "Deploy hook triggered successfully"
+
+      - name: Wait for deployment and health check
+        env:
+          RENDER_BACKEND_BASE_URL: ${{ secrets.RENDER_BACKEND_BASE_URL }}
+        run: |
+          if [ -z "$RENDER_BACKEND_BASE_URL" ]; then
+            echo "RENDER_BACKEND_BASE_URL not set, skipping health check"
+            exit 0
+          fi
+          
+          echo "Waiting for service to be healthy..."
+          for i in {1..30}; do
+            if curl -fsS "$RENDER_BACKEND_BASE_URL/readyz" >/dev/null 2>&1; then
+              echo "Service is healthy!"
+              break
+            fi
+            echo "Attempt $i/30: Service not ready, waiting 10s..."
+            sleep 10
+          done
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for smoke test scripts)
+        uses: actions/checkout@v4
+
+      - name: Install dependencies for smoke tests
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run comprehensive Bash smoke tests
+        env:
+          BASE_URL: ${{ secrets.RENDER_BACKEND_BASE_URL }}
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: |
+          if [ -z "$BASE_URL" ]; then
+            echo "RENDER_BACKEND_BASE_URL not set, skipping comprehensive smoke test"
+            exit 0
+          fi
+          
+          echo "Running comprehensive smoke test suite..."
+          chmod +x test-leadnest.sh
+          ./test-leadnest.sh "$BASE_URL" "${SMOKE_EMAIL:-a@b.c}" "${SMOKE_PASSWORD:-x}" --skip-large-csv
+
+      - name: Upload smoke test JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-smoke-junit
+          path: |
+            test-leadnest.xml
+            Test-LeadNest.xml
+          if-no-files-found: ignore

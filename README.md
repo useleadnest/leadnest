@@ -1,10 +1,10 @@
-# LeadNest - Production Ready! 🚀
+# LeadNest 🎯
 
-MVP SaaS platform helping local contractors generate exclusive leads with AI-powered follow-up automation.
+[![Backend CI](https://github.com/OWNER/REPO/actions/workflows/backend.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/backend.yml)
+[![Frontend CI](https://github.com/OWNER/REPO/actions/workflows/frontend.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/frontend.yml)
+[![PowerShell Smoke Tests](https://github.com/OWNER/REPO/actions/workflows/backend-powershell-smoke.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/backend-powershell-smoke.yml)
 
-## 🎯 MVP Status: PRODUCTION READY! ✅
-
-**LeadNest is now a complete, production-ready SaaS MVP with:**
+> Production-ready Flask + React SaaS platform for lead management with SMS integration, bulk imports, and comprehensive CI/CD automation.
 
 ### ✅ **Core Features Implemented**
 - **Lead Scraping**: Yelp API + fallback mock data for 10+ trade categories

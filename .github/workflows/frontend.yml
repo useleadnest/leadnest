@@ -1,0 +1,118 @@
+name: Frontend • Build, Deploy (Vercel)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+  workflow_dispatch:
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (optional)
+        run: |
+          if npm run lint --if-present; then
+            echo "✅ Linting passed"
+          else
+            echo "⚠️ Linting skipped or failed"
+          fi
+
+      - name: Type check (optional)
+        run: |
+          if npm run type-check --if-present; then
+            echo "✅ Type checking passed"
+          else
+            echo "⚠️ Type checking skipped"
+          fi
+
+      - name: Build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_ENV_NAME: ${{ secrets.VITE_ENV_NAME }}
+        run: |
+          echo "Building with:"
+          echo "VITE_API_BASE_URL: $VITE_API_BASE_URL"
+          echo "VITE_ENV_NAME: $VITE_ENV_NAME"
+          npm run build
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: frontend
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vercel-args: '--prod'
+          alias-domains: ${{ secrets.VERCEL_ALIAS }}
+
+      - name: Verify deployment
+        env:
+          FRONTEND_URL: ${{ secrets.VERCEL_PRODUCTION_URL }}
+        run: |
+          if [ -n "$FRONTEND_URL" ]; then
+            echo "🔍 Verifying deployment at: $FRONTEND_URL"
+            
+            # Wait a moment for deployment to be ready
+            sleep 10
+            
+            # Check if site loads
+            if curl -fsS "$FRONTEND_URL" > /dev/null; then
+              echo "✅ Frontend deployment successful"
+            else
+              echo "⚠️ Frontend verification failed, but deployment may still be processing"
+            fi
+          else
+            echo "ℹ️ No VERCEL_PRODUCTION_URL configured, skipping verification"
+          fi
+
+      - name: Comment deployment URL
+        if: github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const frontendUrl = process.env.VERCEL_PRODUCTION_URL || 'https://your-app.vercel.app';
+            const apiUrl = process.env.VITE_API_BASE_URL || 'https://your-api.onrender.com';
+            
+            const comment = `🚀 **Deployment Complete**
+            
+            📱 **Frontend**: ${frontendUrl}
+            🔗 **API**: ${apiUrl}
+            
+            **Environment**: ${process.env.VITE_ENV_NAME || 'production'}
+            **Commit**: ${context.sha.substring(0, 7)}
+            **Branch**: ${context.ref.replace('refs/heads/', '')}
+            `;
+            
+            // Only comment on push events, not workflow_dispatch
+            if (context.eventName === 'push') {
+              github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+                body: comment
+              });
+            }
+        env:
+          VERCEL_PRODUCTION_URL: ${{ secrets.VERCEL_PRODUCTION_URL }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_ENV_NAME: ${{ secrets.VITE_ENV_NAME }}

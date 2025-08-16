@@ -1,7 +1,26 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { healthAPI } from '../lib/api';
 
 const Homepage: React.FC = () => {
+  const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
+  useEffect(() => {
+    const checkApiStatus = async () => {
+      try {
+        await healthAPI.check();
+        setApiStatus('online');
+      } catch (error) {
+        setApiStatus('offline');
+      }
+    };
+
+    checkApiStatus();
+    // Check API status every 30 seconds
+    const interval = setInterval(checkApiStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleWatchDemo = () => {
     // Demo functionality would go here
     console.log('Demo clicked');
@@ -202,6 +221,18 @@ const Homepage: React.FC = () => {
               </button>
             </div>
             <div className="border-t border-gray-800 pt-8">
+              <div className="flex justify-center items-center space-x-4 mb-4">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    apiStatus === 'online' ? 'bg-green-500' : 
+                    apiStatus === 'offline' ? 'bg-red-500' : 'bg-yellow-500'
+                  }`}></div>
+                  <span className="text-gray-500 text-sm">
+                    API Status: {apiStatus === 'online' ? 'Online' : 
+                                apiStatus === 'offline' ? 'Offline' : 'Checking...'}
+                  </span>
+                </div>
+              </div>
               <p className="text-gray-500 text-sm">
                 © 2025 LeadNest. All rights reserved.
               </p>

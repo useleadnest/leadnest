@@ -1,11 +1,13 @@
 export interface User {
   id: number;
   email: string;
-  is_active: boolean;
-  is_admin: boolean;
-  created_at: string;
+  business_id?: number;
+  role?: string;
+  is_active?: boolean;
+  is_admin?: boolean;
+  created_at?: string;
   trial_ends_at?: string;
-  subscription_status: string;
+  subscription_status?: string;
 }
 
 export interface Lead {

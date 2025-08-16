@@ -1,0 +1,47 @@
+name: Backend • PowerShell Smoke Tests
+
+on:
+  workflow_run:
+    workflows: ["Backend • Build, Deploy, Smoke"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      backend_url:
+        description: 'Backend URL to test'
+        required: false
+        default: ''
+
+jobs:
+  powershell-smoke:
+    runs-on: windows-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run PowerShell smoke tests
+        shell: pwsh
+        env:
+          BASE_URL: ${{ github.event.inputs.backend_url || secrets.RENDER_BACKEND_BASE_URL }}
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: |
+          if (-not $env:BASE_URL) {
+            Write-Host "BASE_URL not set, skipping PowerShell smoke tests"
+            exit 0
+          }
+          
+          Write-Host "Running PowerShell smoke tests against: $env:BASE_URL"
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          .\Test-LeadNest.ps1 -BaseUrl $env:BASE_URL -Email ($env:SMOKE_EMAIL ?? "a@b.c") -Password ($env:SMOKE_PASSWORD ?? "x") -SkipLargeCsv
+
+      - name: Upload PowerShell JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: powershell-smoke-junit
+          path: |
+            Test-LeadNest.xml
+            test-results.xml
+          if-no-files-found: ignore

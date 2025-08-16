@@ -1,0 +1,61 @@
+name: Smoke • PowerShell (Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "API base URL (e.g., https://leadnest-bulletproof.onrender.com)"
+        required: true
+        default: "${{ secrets.RENDER_BACKEND_BASE_URL }}"
+      email:
+        description: "Login email for /auth/login"
+        required: true
+        default: "${{ secrets.SMOKE_EMAIL }}"
+      password:
+        description: "Login password for /auth/login"
+        required: true
+        default: "${{ secrets.SMOKE_PASSWORD }}"
+      skip_large_csv:
+        description: "Skip large CSV background job path"
+        required: false
+        default: "true"
+
+jobs:
+  smoke-win:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify script exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path ".\Test-LeadNest.ps1")) {
+            Write-Error "Test-LeadNest.ps1 not found at repo root (or expected path)."
+            exit 1
+          }
+
+      - name: Run PowerShell smoke tests
+        shell: pwsh
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          SMOKE_EMAIL: ${{ inputs.email }}
+          SMOKE_PASSWORD: ${{ inputs.password }}
+          SKIP_LARGE_CSV: ${{ inputs.skip_large_csv }}
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+          $argsList = @("-BaseUrl", "$env:BASE_URL", "-Email", "$env:SMOKE_EMAIL", "-Password", "$env:SMOKE_PASSWORD")
+          if ($env:SKIP_LARGE_CSV -eq "true") { $argsList += "-SkipLargeCsv" }
+          Write-Host "Invoking: .\Test-LeadNest.ps1 $argsList"
+          .\Test-LeadNest.ps1 @argsList
+
+      - name: Upload JUnit report (if present)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-powershell-junit
+          path: |
+            Test-LeadNest.xml
+            test-results.xml
+          if-no-files-found: ignore

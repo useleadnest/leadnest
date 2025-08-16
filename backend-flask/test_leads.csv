@@ -1,0 +1,4 @@
+full_name,email,phone,source,status
+Test One,one@example.com,,csv,new
+Test Two,,+15555550123,csv,contacted
+Test Three,three@test.com,+15555550124,website,qualified
