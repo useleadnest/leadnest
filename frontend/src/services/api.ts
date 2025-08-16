@@ -29,17 +29,17 @@ api.interceptors.request.use((config) => {
 // Auth API
 export const authAPI = {
   login: async (data: LoginRequest): Promise<AuthResponse> => {
-    const response = await api.post('/auth/login', data);
+    const response = await api.post('/api/auth/login', data);
     return response.data;
   },
 
   register: async (data: RegisterRequest): Promise<User> => {
-    const response = await api.post('/auth/register', data);
+    const response = await api.post('/api/auth/register', data);
     return response.data;
   },
 
   getMe: async (): Promise<User> => {
-    const response = await api.get('/auth/me');
+    const response = await api.get('/api/auth/me');
     return response.data;
   },
 };

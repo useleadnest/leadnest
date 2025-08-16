@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/AuthContext';
-import LoginForm from './components/LoginForm';
-import RegisterForm from './components/RegisterForm';
+import Homepage from './pages/Homepage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
 import './index.css';
 
-const AuthWrapper: React.FC = () => {
-  const [showLogin, setShowLogin] = useState(true);
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -18,20 +19,27 @@ const AuthWrapper: React.FC = () => {
   }
 
   if (!user) {
-    return showLogin ? (
-      <LoginForm onToggle={() => setShowLogin(false)} />
-    ) : (
-      <RegisterForm onToggle={() => setShowLogin(true)} />
-    );
+    return <Navigate to="/login" replace />;
   }
 
-  return <Dashboard />;
+  return <>{children}</>;
 };
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AuthWrapper />
+      <Router>
+        <Routes>
+          <Route path="/" element={<Homepage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </Router>
     </AuthProvider>
   );
 };
