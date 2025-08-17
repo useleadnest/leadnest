@@ -35,3 +35,8 @@ frontend/build/
 
 # Render/Vercel artifacts
 .vercel/
+# Secrets (never commit)
+*.env
+*.env.*
+backend/.env
+render_env_vars.txt
