@@ -3,12 +3,7 @@ services:
     name: leadnest-api
     env: python
     rootDir: backend-flask
-    buildCommand: |
-      pip install -r requirements.txt
-      if [ ! -d "migrations" ]; then
-        FLASK_APP=wsgi:app flask db init
-      fi
-      FLASK_APP=wsgi:app flask db upgrade
+    buildCommand: pip install -r requirements.txt && python -c "from app import create_app; create_app()" && flask db upgrade
     startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
     healthCheckPath: /healthz
     autoDeploy: true
