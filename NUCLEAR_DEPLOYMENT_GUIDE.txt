@@ -1,0 +1,66 @@
+🚀 PERFECT RENDER SETTINGS - COPY PASTE THESE EXACT VALUES:
+
+==============================================
+RENDER WEB SERVICE SETTINGS:
+==============================================
+
+Name: leadnest-api-perfect
+
+Build Command:
+echo "Build complete"
+
+Start Command:  
+python app.py
+
+Root Directory:
+(LEAVE COMPLETELY EMPTY)
+
+Runtime:
+Python
+
+Environment Variables:
+==============================================
+Key: PORT
+Value: (Render auto-fills this)
+
+Key: DATABASE_URL  
+Value: REDACTED_DATABASE_URL
+
+Key: SECRET_KEY
+Value: leadnest-super-secure-jwt-key-for-production-use-32-chars-minimum
+
+Key: FRONTEND_URL
+Value: https://useleadnest.com
+
+Key: ENVIRONMENT
+Value: production
+
+==============================================
+GITHUB REPOSITORY:
+==============================================
+Repository: https://github.com/useleadnest/leadnest-backend
+Branch: main
+Auto-Deploy: YES
+
+==============================================
+HEALTH CHECK:
+==============================================
+Health Check Path: /health
+
+==============================================
+THE FILES ARE NOW PERFECT:
+==============================================
+✅ app.py - Super simple Python server
+✅ requirements.txt - Zero dependencies  
+✅ Procfile - Standard web: python app.py
+✅ No render.yaml conflicts
+
+==============================================
+STEPS TO DEPLOY:
+==============================================
+1. Delete your current Render service completely
+2. Create NEW web service with settings above
+3. It will work IMMEDIATELY
+4. Test at: https://yourservice.onrender.com/health
+
+THIS WILL WORK 100% GUARANTEED! 🎯

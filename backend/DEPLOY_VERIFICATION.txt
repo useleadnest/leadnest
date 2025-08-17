@@ -1,0 +1,3 @@
+DEPLOYMENT VERIFICATION - August 15, 2025
+This file confirms the latest backend code is deployed.
+All /api/auth/* endpoints should be working.

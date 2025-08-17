@@ -1,0 +1,55 @@
+services:
+  - type: web
+<<<<<<< HEAD
+    name: leadnest-backend-perfect
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    runtime: python-3.11.0
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      echo "Build completed successfully"
+    startCommand: python -m uvicorn main_perfect:app --host 0.0.0.0 --port $PORT --log-level info
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://useleadnest.com
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: CORS_ORIGINS
+        value: https://useleadnest.com,https://www.useleadnest.com
+      - key: LOG_LEVEL
+        value: info
+
+databases:
+  - name: leadnest-postgres
+    plan: free
+    databaseName: leadnest_prod
+    user: leadnest_user
+=======
+    name: leadnest-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
+>>>>>>> c96c9dda05b3b156ea1d20c5eec8b7e05dffac9a

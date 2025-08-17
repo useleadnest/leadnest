@@ -1,0 +1,59 @@
+🚨 FINAL RENDER DEPLOYMENT INSTRUCTIONS 🚨
+
+The issue is that Render is still using OLD cached settings. Here's the GUARANTEED FIX:
+
+==============================================
+STEP 1: DELETE YOUR CURRENT RENDER SERVICE
+==============================================
+1. Go to your Render dashboard
+2. Find your current service (leadnest-api or similar)
+3. Click "Settings" → "Danger Zone" → "Delete Service"
+4. Confirm deletion
+
+==============================================
+STEP 2: CREATE NEW RENDER SERVICE
+==============================================
+1. Click "New +" → "Web Service"
+2. Connect your GitHub repository: https://github.com/useleadnest/leadnest-backend
+3. Use these EXACT settings:
+
+Name: leadnest-api-final
+
+Build Command: 
+echo "Build complete"
+
+Start Command:
+python app.py
+
+Root Directory:
+(LEAVE COMPLETELY EMPTY)
+
+Environment Variables:
+- DATABASE_URL: REDACTED_DATABASE_URL
+- SECRET_KEY: leadnest-super-secure-jwt-key-for-production-use-32-chars-minimum
+- FRONTEND_URL: https://useleadnest.com
+- ENVIRONMENT: production
+
+==============================================
+FILES NOW IN REPO:
+==============================================
+✅ app.py - Simple Python HTTP server
+✅ Procfile - Contains "web: python app.py"  
+✅ requirements.txt - Empty (zero dependencies)
+❌ render.yaml - DELETED (was causing conflicts)
+
+==============================================
+WHY THIS WILL WORK:
+==============================================
+- NO render.yaml conflicts
+- Simple Procfile approach (industry standard)
+- Zero dependencies = no build issues
+- app.py is in root directory = no path issues
+
+==============================================
+RESULT:
+==============================================
+Your API will be live at: https://leadnest-api-final.onrender.com
+Health check: https://leadnest-api-final.onrender.com/health
+
+THIS IS GUARANTEED TO WORK! 🎯

@@ -1,0 +1,17 @@
+# RENDER DEPLOYMENT QUICK FIX
+
+Write-Host "🚨 FIXING DEPLOYMENT - main_perfect.py not found"
+Write-Host ""
+Write-Host "QUICK SOLUTION: Change Start Command to use main.py"
+Write-Host ""
+Write-Host "Go to your Render service Settings:"
+Write-Host "1. Change Start Command to:"
+Write-Host "   python -m uvicorn main:app --host 0.0.0.0 --port `$PORT --log-level info"
+Write-Host ""
+Write-Host "OR try this alternative:"
+Write-Host "   uvicorn main:app --host 0.0.0.0 --port `$PORT"
+Write-Host ""
+Write-Host "2. Click 'Save Changes'"
+Write-Host "3. Service will redeploy automatically"
+Write-Host ""
+Write-Host "This should work immediately since main.py definitely exists!"

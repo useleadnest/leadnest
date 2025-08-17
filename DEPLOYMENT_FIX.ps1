@@ -1,0 +1,30 @@
+# RENDER DEPLOYMENT FIX
+
+Write-Host "🚨 DEPLOYMENT ERROR DETECTED!"
+Write-Host ""
+Write-Host "ISSUE: Cannot import module 'main_perfect'"
+Write-Host "CAUSE: Render is looking in root directory instead of backend/"
+Write-Host ""
+Write-Host "🔧 QUICK FIX OPTIONS:"
+Write-Host ""
+
+Write-Host "OPTION 1 (RECOMMENDED): Update Root Directory"
+Write-Host "1. Go to your Render service settings"
+Write-Host "2. Find 'Root Directory' setting"
+Write-Host "3. Change from blank to: backend"
+Write-Host "4. Click 'Save Changes'"
+Write-Host "5. Redeploy"
+Write-Host ""
+
+Write-Host "OPTION 2: Update Start Command"
+Write-Host "1. Go to your Render service settings"
+Write-Host "2. Find 'Start Command'"
+Write-Host "3. Change to: cd backend && python -m uvicorn main_perfect:app --host 0.0.0.0 --port `$PORT --log-level info"
+Write-Host "4. Click 'Save Changes'"
+Write-Host "5. Redeploy"
+Write-Host ""
+
+Write-Host "✅ RECOMMENDED: Use OPTION 1 (Root Directory = backend)"
+Write-Host ""
+Write-Host "After fixing, run this to monitor:"
+Write-Host "powershell -ExecutionPolicy Bypass .\DEPLOYMENT_MONITOR.ps1"
