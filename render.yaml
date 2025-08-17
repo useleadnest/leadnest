@@ -1,0 +1,66 @@
+services:
+  - type: web
+    name: leadnest-api
+    env: python
+    rootDir: backend-flask
+    buildCommand: pip install -r requirements.txt && flask db upgrade
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.5
+      - key: PUBLIC_BASE_URL
+        value: https://api.useleadnest.com
+      - key: CORS_ORIGINS
+        value: https://useleadnest.com,https://*.vercel.app
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
+
+  - type: worker
+    name: leadnest-worker
+    env: python
+    rootDir: backend-flask
+    buildCommand: pip install -r requirements.txt
+    startCommand: python worker.py
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://api.useleadnest.com
+      - key: LOG_LEVEL
+        value: INFO
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
+
+databases:
+  - name: leadnest-db
+    databaseName: leadnest_prod
+    user: leadnest_user
+    plan: starter
+
+services:
+  - type: redis
+    name: leadnest-redis
+    plan: starter
