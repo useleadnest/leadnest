@@ -1,53 +1,59 @@
 services:
-  # Main Flask API
   - type: web
     name: leadnest-api
-    runtime: python3
-    buildCommand: pip install -r requirements.txt
+    env: python
+    rootDir: backend-flask
+    buildCommand: |
+      pip install -r requirements.txt
+      if [ ! -d "migrations" ]; then
+        FLASK_APP=wsgi:app flask db init
+      fi
+      FLASK_APP=wsgi:app flask db upgrade
     startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
-    plan: starter
-    branch: main
-    rootDir: ./backend-flask
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: leadnest-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: leadnest-redis
-          property: connectionString
-      - key: JWT_SECRET
-        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.5
       - key: PUBLIC_BASE_URL
         value: https://leadnest-api.onrender.com
-      - key: LOG_LEVEL
-        value: INFO
       - key: CORS_ORIGINS
-        value: https://leadnest.vercel.app,https://useleadnest.com
-      - key: FLASK_ENV
-        value: production
-      # Twilio vars (you'll add these manually)
+        value: https://leadnest.vercel.app
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
       - key: TWILIO_ACCOUNT_SID
-        value: ""  # Add your Twilio Account SID
+        sync: false
       - key: TWILIO_AUTH_TOKEN
-        value: ""  # Add your Twilio Auth Token  
+        sync: false
       - key: TWILIO_FROM
-        value: ""  # Add your Twilio phone number
+        sync: false
 
-  # Background Worker
   - type: worker
     name: leadnest-worker
-    runtime: python3
+    env: python
+    rootDir: backend-flask
     buildCommand: pip install -r requirements.txt
     startCommand: python worker.py
-    plan: starter
-    branch: main
-    rootDir: ./backend-flask
+    autoDeploy: true
     envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://leadnest-api.onrender.com
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: leadnest-db
