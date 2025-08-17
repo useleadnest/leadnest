@@ -3,7 +3,7 @@
 
 Write-Host "== Production Smoke Test ==" -ForegroundColor Yellow
 
-$B = "https://leadnest-api.onrender.com"
+$B = "https://leadnest-bulletproof.onrender.com"
 
 Write-Host "1. Health checks:" -ForegroundColor Cyan
 try {

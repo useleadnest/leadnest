@@ -16,7 +16,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.5
       - key: PUBLIC_BASE_URL
-        value: https://leadnest-api.onrender.com
+        value: https://leadnest-bulletproof.onrender.com
       - key: CORS_ORIGINS
         value: https://leadnest.vercel.app
       - key: DATABASE_URL
