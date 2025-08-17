@@ -1,4 +1,10 @@
-﻿# OS
+﻿# Secrets (never commit)
+*.env
+*.env.*
+backend/.env
+render_env_vars.txt
+
+# OS
 .DS_Store
 Thumbs.db
 
@@ -22,18 +28,6 @@ frontend/build/
 *.log
 .coverage
 .cache/
-
-# Env & secrets (never commit)
-*.env
-*.env.*
-**/.env
-**/.env.*
-.envrc
-*.pem
-*.key
-*.p12
-*.jks
-*.keystore
 
 # Local tooling
 .vscode/
