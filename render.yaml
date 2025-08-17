@@ -27,7 +27,7 @@ services:
       - key: LOG_LEVEL
         value: INFO
       - key: CORS_ORIGINS
-        value: https://leadnest-frontend.vercel.app,https://your-custom-domain.com
+        value: https://leadnest.vercel.app,https://useleadnest.com
       - key: FLASK_ENV
         value: production
       # Twilio vars (you'll add these manually)
