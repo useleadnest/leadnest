@@ -59,6 +59,23 @@ def create_app():
 
     # ✅ Import API after limiter is defined to avoid circular import
     from .api import api_bp
-    app.register_blueprint(api_bp)
+    app.register_blueprint(api_bp, url_prefix="/api")
+
+    # Root-level health routes (not under /api prefix)
+    @app.route("/")
+    def root():
+        return {"status": "healthy", "service": "leadnest-api", "version": "1.0.0"}
+
+    @app.route("/health")
+    def health():
+        return {"status": "healthy"}
+
+    @app.route("/healthz")
+    def healthz():
+        return {"status": "healthy"}
+
+    @app.route("/readyz") 
+    def readyz():
+        return {"status": "ready"}
 
     return app
