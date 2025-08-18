@@ -1,0 +1,5 @@
+sk_live_[A-Za-z0-9]{24,}==>sk_live_REDACTED
+pk_live_[A-Za-z0-9]{24,}==>pk_live_REDACTED
+whsec_[A-Za-z0-9]{32,}==>whsec_REDACTED
+AKIA[0-9A-Z]{16,}==>AKIA_REDACTED
+ghp_[A-Za-z0-9]{36,}==>ghp_REDACTED

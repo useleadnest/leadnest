@@ -430,6 +430,41 @@ def twilio_inbound():
         # Surface error so it appears in Twilio console; they will retry
         return "Twilio webhook internal error", 500
 
+@api_bp.post("/twilio/inbound/test")
+def twilio_inbound_test():
+    """
+    TEST ENDPOINT ONLY - Bypasses signature validation for pre-launch testing
+    This simulates Twilio inbound webhook behavior without requiring valid signature
+    DO NOT USE IN PRODUCTION - REMOVE AFTER LAUNCH
+    """
+    
+    try:
+        # Skip signature validation for testing
+        from_number = request.form.get("From", "")
+        body = request.form.get("Body", "")
+
+        current_app.logger.info({
+            "twilio_inbound_test": True, 
+            "from": from_number, 
+            "body": body,
+            "signature_bypassed": True
+        })
+
+        # Auto-reply with TwiML (same logic as real endpoint)
+        from twilio.twiml.messaging_response import MessagingResponse
+        resp = MessagingResponse()
+        resp.message("Thanks! We got your message and will reply shortly.")
+        
+        xml_response = str(resp)
+        current_app.logger.info(f"TEST - Sending TwiML response: {xml_response}")
+        
+        # Return TwiML with correct Content-Type for Twilio auto-reply
+        return xml_response, 200, {"Content-Type": "application/xml"}
+        
+    except Exception as e:
+        current_app.logger.exception(f"Twilio TEST webhook error: {e}")
+        return "Twilio TEST webhook internal error", 500
+
 @api_bp.post("/twilio/send")
 @require_auth
 def twilio_send():
