@@ -289,6 +289,7 @@ def twilio_debug():
             "twilio_from_set": bool(os.environ.get("TWILIO_FROM")),
             "database_url_set": bool(os.environ.get("DATABASE_URL")),
             "jwt_secret_set": bool(os.environ.get("JWT_SECRET")),
+            "public_base_url": os.environ.get("PUBLIC_BASE_URL", ""),
         }
         return debug_info, 200
     except Exception as e:
@@ -329,23 +330,32 @@ def twilio_inbound():
     """
     
     try:
-        # 1) Collect form params (not JSON) with flat=False for compatibility
-        form_params = request.form.to_dict(flat=False)
-        
-        # 2) Render sits behind a proxy; make sure URL used for validation is https
-        url_for_sig = request.url.replace("http://", "https://")
+        # 1) Collect form params as flat dict (Twilio validator expects str values)
+        form_params = request.form.to_dict()  # flat=True by default
+
+        # 2) Build the exact URL Twilio used when signing
+        # Prefer PUBLIC_BASE_URL if provided (e.g., https://api.useleadnest.com)
+        public_base = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+        if public_base:
+            url_for_sig = f"{public_base}/api/twilio/inbound"
+        else:
+            # Rely on ProxyFix to provide the correct scheme/host
+            url_for_sig = request.url
         
         # 3) Validate Twilio signature
         sig = request.headers.get("X-Twilio-Signature", "")
         auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
-        
-        current_app.logger.info(f"Twilio webhook signature validation - URL: {url_for_sig}, has_signature: {bool(sig)}")
+
+        current_app.logger.info(
+            f"Twilio webhook signature validation - URL: {url_for_sig}, has_signature: {bool(sig)}, "
+            f"form_keys: {list(form_params.keys())}"
+        )
         
         if not auth_token:
             # Misconfigured env -> treat as forbidden so you'll see 403 in logs
             current_app.logger.error("TWILIO_AUTH_TOKEN not configured")
             return "", 403
-        
+
         validator = RequestValidator(auth_token)
         is_valid = validator.validate(url_for_sig, form_params, sig)
         current_app.logger.info(f"Twilio signature validation result: {is_valid}")
@@ -420,8 +430,8 @@ def twilio_inbound():
         
     except Exception as e:
         current_app.logger.exception(f"Twilio webhook error: {e}")
-        # Return 200 even on error to prevent Twilio retries
-        return "", 200
+        # Surface error so it appears in Twilio console; they will retry
+        return "Twilio webhook internal error", 500
 
 @api_bp.post("/twilio/send")
 @require_auth
