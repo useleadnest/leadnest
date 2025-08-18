@@ -1575,3 +1575,16 @@ def stripe_create_checkout():
     except Exception as e:
         current_app.logger.exception(f"Stripe checkout creation error: {e}")
         return {"error": "Checkout creation failed"}, 500
+
+# Alias for billing endpoint as specified in requirements
+@api_bp.post("/billing/checkout")
+@require_auth  
+def billing_checkout():
+    """
+    Billing checkout endpoint - delegates to stripe_create_checkout
+    """
+    return stripe_create_checkout()
+
+# Export app instance for Gunicorn to find at app.api:app
+from . import create_app
+app = create_app()
