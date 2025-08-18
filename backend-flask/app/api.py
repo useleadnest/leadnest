@@ -330,26 +330,17 @@ def twilio_inbound():
     """
     
     try:
-        # 1) Collect form params as flat dict (Twilio validator expects str values)
-        form_params = request.form.to_dict()  # flat=True by default
-
-        # 2) Build the exact URL Twilio used when signing
-        # Prefer PUBLIC_BASE_URL if provided (e.g., https://api.useleadnest.com)
-        public_base = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
-        if public_base:
-            url_for_sig = f"{public_base}/api/twilio/inbound"
-        else:
-            # Rely on ProxyFix to provide the correct scheme/host
-            url_for_sig = request.url
+        # 1) Collect form params (not JSON) with flat=False for compatibility
+        form_params = request.form.to_dict(flat=False)
+        
+        # 2) Render sits behind a proxy; make sure URL used for validation is https
+        url_for_sig = request.url.replace("http://", "https://")
         
         # 3) Validate Twilio signature
         sig = request.headers.get("X-Twilio-Signature", "")
         auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
 
-        current_app.logger.info(
-            f"Twilio webhook signature validation - URL: {url_for_sig}, has_signature: {bool(sig)}, "
-            f"form_keys: {list(form_params.keys())}"
-        )
+        current_app.logger.info(f"Twilio webhook signature validation - URL: {url_for_sig}, has_signature: {bool(sig)}")
         
         if not auth_token:
             # Misconfigured env -> treat as forbidden so you'll see 403 in logs
