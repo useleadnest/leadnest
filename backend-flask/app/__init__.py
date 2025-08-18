@@ -20,7 +20,7 @@ def create_app():
     app.config.from_mapping(SECRET_KEY=settings.JWT_SECRET)
 
     # Trust proxy headers for HTTPS/host detection (Render/Cloudflare)
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
     app.config["PREFERRED_URL_SCHEME"] = "https"
 
     # CORS - explicit headers for preflight sanity

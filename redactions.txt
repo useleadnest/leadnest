@@ -1,0 +1,9 @@
+regex:\bsk_live_[A-Za-z0-9_]{10,}[A-Za-z0-9_]*\b==>sk_live_REDACTED
+regex:\bpk_live_[A-Za-z0-9_]{10,}[A-Za-z0-9_]*\b==>pk_live_REDACTED
+regex:\bwhsec_[A-Za-z0-9_]{10,}[A-Za-z0-9_]*\b==>whsec_REDACTED
+regex:\bghp_[A-Za-z0-9_]{10,}[A-Za-z0-9_]*\b==>ghp_REDACTED
+regex:\bAKIA[0-9A-Z_]{16}[0-9A-Z_]*\b==>AKIA_REDACTED:\bsk_live_[A-Za-z0-9]{10,}\b==>sk_live_REDACTED
+regex:\bpk_live_[A-Za-z0-9]{10,}\b==>pk_live_REDACTED  
+regex:\bwhsec_[A-Za-z0-9]{10,}\b==>whsec_REDACTED
+regex:\bghp_[A-Za-z0-9]{10,}\b==>ghp_REDACTED
+regex:\bAKIA[0-9A-Z]{16}\b==>AKIA_REDACTED

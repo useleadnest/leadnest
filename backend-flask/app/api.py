@@ -278,59 +278,105 @@ def create_booking():
         return {"error": f"Invalid booking data: {e}"}, 400
 
 # ---------- Twilio ----------
+
+@api_bp.get("/twilio/debug")
+def twilio_debug():
+    """Debug endpoint to check Twilio configuration"""
+    try:
+        debug_info = {
+            "twilio_auth_token_set": bool(os.environ.get("TWILIO_AUTH_TOKEN")),
+            "twilio_account_sid_set": bool(os.environ.get("TWILIO_ACCOUNT_SID")),
+            "twilio_from_set": bool(os.environ.get("TWILIO_FROM")),
+            "database_url_set": bool(os.environ.get("DATABASE_URL")),
+            "jwt_secret_set": bool(os.environ.get("JWT_SECRET")),
+        }
+        return debug_info, 200
+    except Exception as e:
+        return {"error": str(e)}, 500
+
 @api_bp.post("/twilio/inbound")
 def twilio_inbound():
-    """Handle inbound SMS from Twilio with proper signature validation."""
-    # Validate signature (protects from spoofed requests)
-    auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-    if auth_token:
+    """
+    Twilio posts application/x-www-form-urlencoded.
+    We must validate the X-Twilio-Signature using the *live* TWILIO_AUTH_TOKEN.
+    """
+    
+    try:
+        # 1) Collect form params (not JSON) with flat=False for compatibility
+        form_params = request.form.to_dict(flat=False)
+        
+        # 2) Render sits behind a proxy; make sure URL used for validation is https
+        url_for_sig = request.url.replace("http://", "https://")
+        
+        # 3) Validate Twilio signature
+        sig = request.headers.get("X-Twilio-Signature", "")
+        auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
+        
+        if not auth_token:
+            # Misconfigured env -> treat as forbidden so you'll see 403 in logs
+            current_app.logger.error("TWILIO_AUTH_TOKEN not configured")
+            return "", 403
+        
         validator = RequestValidator(auth_token)
-        signature = request.headers.get("X-Twilio-Signature", "")
-        
-        # Force HTTPS in URL since Twilio signs the public HTTPS URL
-        url = request.url
-        if url.startswith("http://"):
-            url = "https://" + url[len("http://"):]
-        
-        # Use form data with preserved duplicates for signature validation
-        params = request.form.to_dict(flat=False)
-        
-        if not validator.validate(url, params, signature):
+        if not validator.validate(url_for_sig, form_params, sig):
+            # Signature mismatch => 403 Forbidden
             current_app.logger.warning(
-                "Invalid Twilio signature",
+                "Invalid Twilio signature validation failed",
                 extra={
-                    "url": url,
-                    "params_keys": list(params.keys()),
-                    "has_signature": bool(signature)
+                    "url": url_for_sig,
+                    "has_signature": bool(sig),
+                    "form_params_keys": list(form_params.keys())
                 }
             )
-            return {"error": "invalid signature"}, 403
+            return "", 403
 
-    from_number = request.form.get("From", "")
-    body = request.form.get("Body", "")
+        # 4) Process the webhook
+        from_number = request.form.get("From", "")
+        body = request.form.get("Body", "")
 
-    try:
-        lead = Lead.query.filter_by(phone=from_number).first()
-        if not lead:
-            lead = Lead(phone=from_number, source="sms", status="new", business_id=1)
-            db.session.add(lead)
-            db.session.flush()
+        # Try database operations in try/catch to prevent 500 errors
+        try:
+            # Find or create lead
+            lead = Lead.query.filter_by(phone=from_number).first()
+            if not lead:
+                lead = Lead(phone=from_number, source="sms", status="new", business_id=1)
+                db.session.add(lead)
+                db.session.flush()
 
-        convo = Conversation.query.filter_by(lead_id=lead.id, channel="sms").first()
-        if not convo:
-            convo = Conversation(lead_id=lead.id, channel="sms")
-            db.session.add(convo)
-            db.session.flush()
+            # Find or create conversation
+            convo = Conversation.query.filter_by(lead_id=lead.id, channel="sms").first()
+            if not convo:
+                convo = Conversation(lead_id=lead.id, channel="sms")
+                db.session.add(convo)
+                db.session.flush()
 
-        db.session.add(Message(conversation_id=convo.id, role="user", text=body, ts=datetime.utcnow()))
-        db.session.commit()
+            # Add message
+            db.session.add(Message(
+                conversation_id=convo.id, 
+                role="user", 
+                text=body, 
+                ts=datetime.utcnow()
+            ))
+            db.session.commit()
 
-        resp = MessagingResponse()
-        resp.message("Thanks! We got your message and will reply shortly.")
-        return str(resp), 200, {"Content-Type": "text/xml"}
+            # Auto-reply with TwiML
+            resp = MessagingResponse()
+            resp.message("Thanks! We got your message and will reply shortly.")
+            
+            # Return 200 immediately so Twilio stops retrying
+            return str(resp), 200, {"Content-Type": "text/xml"}
+            
+        except Exception as db_error:
+            current_app.logger.exception(f"Database error in Twilio webhook: {db_error}")
+            # Still return a TwiML response even if DB fails
+            resp = MessagingResponse()
+            resp.message("Message received!")
+            return str(resp), 200, {"Content-Type": "text/xml"}
+        
     except Exception as e:
-        log.exception("twilio inbound failed: %s", e)
-        return {"error": "internal"}, 500
+        current_app.logger.exception(f"Twilio webhook error: {e}")
+        # Return 200 even on error to prevent Twilio retries
+        return "", 200
 
 @api_bp.post("/twilio/send")
 @require_auth
