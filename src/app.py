@@ -1,3 +1,29 @@
+import os
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+# Sentry configuration
+if os.getenv('SENTRY_DSN'):
+    sentry_logging = LoggingIntegration(
+        level=logging.INFO,
+        event_level=logging.ERROR
+    )
+    
+    sentry_sdk.init(
+        dsn=os.getenv('SENTRY_DSN'),
+        integrations=[
+            FlaskIntegration(transaction_style='endpoint'),
+            sentry_logging,
+        ],
+        environment=os.getenv('SENTRY_ENVIRONMENT', 'production'),
+        traces_sample_rate=0.1,
+    )
+
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os

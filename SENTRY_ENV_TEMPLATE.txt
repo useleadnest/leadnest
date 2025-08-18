@@ -1,0 +1,8 @@
+# Sentry Configuration
+SENTRY_DSN=https://your-dsn@sentry.io/project-id
+SENTRY_ENVIRONMENT=production
+
+# Add these to your Render environment variables:
+# 1. Go to your Render service dashboard
+# 2. Go to Environment tab
+# 3. Add the above variables with your actual Sentry DSN

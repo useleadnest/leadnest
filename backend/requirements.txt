@@ -17,3 +17,5 @@ celery==5.3.4
 redis==5.0.1
 slowapi==0.1.9
 python-jose==3.3.0
+
+sentry-sdk[flask]==1.39.1

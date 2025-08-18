@@ -1,0 +1,1 @@
+# Competitive services module

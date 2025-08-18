@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { healthAPI } from '../lib/api';
+import { Health } from '../lib/api';
 
 const Homepage: React.FC = () => {
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -8,7 +8,7 @@ const Homepage: React.FC = () => {
   useEffect(() => {
     const checkApiStatus = async () => {
       try {
-        await healthAPI.check();
+        await Health.check();
         setApiStatus('online');
       } catch (error) {
         setApiStatus('offline');
@@ -22,8 +22,9 @@ const Homepage: React.FC = () => {
   }, []);
 
   const handleBookDemo = () => {
-    // Open Calendly booking in new window
-    window.open('https://calendly.com/leadnest-demo', '_blank');
+    // Open Calendly booking in new window - use env var or fallback
+    const calendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/leadnest-demo';
+    window.open(calendlyUrl, '_blank');
   };
 
   const scrollToFeatures = () => {

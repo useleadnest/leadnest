@@ -5,13 +5,10 @@ import {
   Search,
   Export,
   DashboardStats,
-  LoginRequest,
-  RegisterRequest,
-  SearchRequest,
-  AuthResponse
+  SearchRequest
 } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://leadnest-api.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.useleadnest.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -28,13 +25,13 @@ api.interceptors.request.use((config) => {
 
 // Auth API
 export const authAPI = {
-  login: async (data: LoginRequest): Promise<AuthResponse> => {
-    const response = await api.post('/api/auth/login', data);
+  login: async (email: string, password: string): Promise<{ token: string; user: User }> => {
+    const response = await api.post('/api/auth/login', { email, password });
     return response.data;
   },
 
-  register: async (data: RegisterRequest): Promise<User> => {
-    const response = await api.post('/api/auth/register', data);
+  register: async (email: string, password: string, businessName: string): Promise<{ token: string; user: User }> => {
+    const response = await api.post('/api/auth/register', { email, password, business_name: businessName });
     return response.data;
   },
 

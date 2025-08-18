@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
-import { authAPI } from '../lib/api';
+import { authAPI } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -59,7 +59,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const register = async (email: string, password: string, businessName?: string) => {
-    const response = await authAPI.register(email, password, businessName);
+    const response = await authAPI.register(email, password, businessName || '');
     localStorage.setItem('ln_token', response.token);
     setUser(response.user);
   };

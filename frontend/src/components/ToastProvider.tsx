@@ -45,10 +45,10 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  // ESM-safe wiring to api.ts
-  React.useEffect(() => {
-    import('../lib/api').then(({ setToastFunction }) => setToastFunction(addToast));
-  }, [addToast]);
+  // ESM-safe wiring to api.ts - No longer needed with react-hot-toast
+  // React.useEffect(() => {
+  //   import('../lib/api').then(({ setToastFunction }) => setToastFunction(addToast));
+  // }, [addToast]);
 
   const getToastStyles = (type: string) => {
     switch (type) {

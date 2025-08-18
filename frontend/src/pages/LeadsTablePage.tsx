@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { leadsAPI } from '../lib/api';
+import api from '../services/api';
 
 interface Lead {
   id: number;
@@ -31,8 +31,8 @@ const LeadsTablePage: React.FC = () => {
 
   const loadLeads = async () => {
     try {
-      const data = await leadsAPI.list();
-      setLeads(data);
+      const response = await api.get('/leads');
+      setLeads(response.data);
     } catch (error) {
       console.error('Failed to load leads:', error);
     } finally {

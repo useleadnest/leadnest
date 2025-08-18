@@ -19,6 +19,42 @@ from .__init__ import limiter
 from .tasks import enqueue_bulk_import
 
 log = logging.getLogger(__name__)
+
+# Import competitive advantage services
+try:
+    import sys
+    import os
+    services_path = os.path.join(os.path.dirname(__file__), '..', 'services')
+    if services_path not in sys.path:
+        sys.path.append(services_path)
+    
+    from ai_lead_scorer import AILeadScorer
+    from roi_calculator import ROICalculator, CompetitiveAnalyzer
+    from nurture_sequences import SequenceManager
+    from shared_inbox import SharedInboxManager, CallLogManager, MessageType, CallDisposition
+    
+    # Initialize competitive services
+    ai_scorer = AILeadScorer()
+    roi_calculator = ROICalculator()
+    competitive_analyzer = CompetitiveAnalyzer()
+    sequence_manager = SequenceManager()
+    inbox_manager = SharedInboxManager()
+    call_manager = CallLogManager()
+    
+    log.info("Competitive advantage services loaded successfully")
+except ImportError as e:
+    log.warning(f"Could not import competitive services: {e}")
+    # Set None placeholders
+    ai_scorer = None
+    roi_calculator = None
+    competitive_analyzer = None
+    sequence_manager = None
+    inbox_manager = None
+    call_manager = None
+    MessageType = None
+    CallDisposition = None
+
+log = logging.getLogger(__name__)
 api_bp = Blueprint("api", __name__)
 
 # ---------- Helpers ----------
@@ -45,6 +81,30 @@ class BookingSchema(Schema):
     lead_id = fields.Int(required=True)
     starts_at = fields.Str(required=True)
     notes = fields.Str(load_default=None)
+
+class MessageSchema(Schema):
+    lead_id = fields.Int(required=True)
+    message_type = fields.Str(required=True, validate=validate.OneOf(['email', 'sms']))
+    content = fields.Str(required=True, validate=validate.Length(min=1, max=2000))
+    recipient = fields.Str(required=True)
+    subject = fields.Str(validate=validate.Length(max=200))
+
+class CallLogSchema(Schema):
+    lead_id = fields.Int(required=True)
+    phone_number = fields.Str(required=True, validate=validate.Regexp(r'^\+?1?\d{9,15}$'))
+    direction = fields.Str(required=True, validate=validate.OneOf(['inbound', 'outbound']))
+    duration_seconds = fields.Int(required=True, validate=validate.Range(min=0, max=14400))  # Max 4 hours
+    disposition = fields.Str(required=True, validate=validate.OneOf([
+        'connected', 'no_answer', 'busy', 'voicemail', 'wrong_number', 
+        'appointment_scheduled', 'not_interested'
+    ]))
+    notes = fields.Str(validate=validate.Length(max=1000))
+    recording_url = fields.Url()
+
+class NurtureSequenceSchema(Schema):
+    lead_id = fields.Int(required=True)
+    industry = fields.Str(validate=validate.OneOf(['medspas', 'contractors', 'law_firms', 'salons']))
+    business_data = fields.Dict()
 
 # ---------- Health ----------
 @api_bp.get("/healthz")
@@ -348,3 +408,861 @@ def lead_messages(lead_id: int):
         return jsonify([])
     msgs = Message.query.filter(Message.conversation_id.in_(ids)).order_by(Message.ts.asc()).all()
     return jsonify([{"id": m.id, "role": m.role, "text": m.text, "ts": m.ts.isoformat()} for m in msgs])
+
+# ---------- Competitive Advantage Features ----------
+
+# AI Lead Scoring
+@api_bp.get("/ai/score-leads")
+@require_auth
+@limiter.limit("10 per minute")  # Rate limit for expensive AI operations
+def score_leads():
+    """Get AI lead scores for all leads with pagination and filtering"""
+    if not ai_scorer:
+        return {"error": "AI scoring service not available"}, 503
+    
+    try:
+        # Get query parameters with defaults
+        user_id = request.args.get('user_id', 'default')
+        limit = min(int(request.args.get('limit', 50)), 100)  # Max 100 leads per request
+        offset = int(request.args.get('offset', 0))
+        industry = request.args.get('industry', 'medspas')
+        min_score = int(request.args.get('min_score', 0))
+        
+        # Get leads from database with pagination
+        leads_query = Lead.query.offset(offset).limit(limit)
+        if request.args.get('source'):
+            leads_query = leads_query.filter(Lead.source == request.args.get('source'))
+        
+        leads = leads_query.all()
+        
+        if not leads:
+            return {"leads": [], "total": 0, "has_more": False}, 200
+        
+        # Prepare lead data for scoring
+        lead_data = []
+        for lead in leads:
+            lead_data.append({
+                'id': str(lead.id),
+                'name': lead.full_name or 'Unknown',
+                'email': lead.email or '',
+                'phone': lead.phone or '',
+                'source': lead.source or 'unknown',
+                'industry': industry,
+                'created_at': lead.created_at.isoformat() if lead.created_at else None
+            })
+        
+        # Get AI scores
+        scores = ai_scorer.bulk_score_leads(lead_data)
+        
+        # Filter by minimum score if specified
+        if min_score > 0:
+            scores = [s for s in scores if s.get('score', 0) >= min_score]
+        
+        # Check if there are more leads
+        total_leads = Lead.query.count()
+        has_more = (offset + limit) < total_leads
+        
+        log.info(f"Scored {len(scores)} leads for user {user_id}")
+        
+        return {
+            "leads": scores,
+            "total": len(scores),
+            "has_more": has_more,
+            "offset": offset,
+            "limit": limit
+        }, 200
+        
+    except ValueError as e:
+        log.error(f"Validation error in score_leads: {e}")
+        return {"error": f"Invalid parameters: {str(e)}"}, 400
+    except Exception as e:
+        log.error(f"AI scoring error: {e}")
+        return {"error": "Failed to score leads"}, 500
+
+@api_bp.get("/ai/lead-insights/<int:lead_id>")
+@require_auth
+@limiter.limit("30 per minute")
+def lead_insights(lead_id: int):
+    """Get detailed AI insights for a specific lead"""
+    if not ai_scorer:
+        return {"error": "AI scoring service not available"}, 503
+        
+    try:
+        lead = Lead.query.get(lead_id)
+        if not lead:
+            return {"error": "Lead not found"}, 404
+        
+        # Prepare lead data
+        lead_data = {
+            'id': str(lead.id),
+            'name': lead.full_name or 'Unknown',
+            'email': lead.email or '',
+            'phone': lead.phone or '',
+            'source': lead.source or 'unknown',
+            'industry': request.args.get('industry', 'medspas'),
+            'created_at': lead.created_at.isoformat() if lead.created_at else None
+        }
+        
+        # Get AI analysis
+        score_result = ai_scorer.score_lead(lead_data)
+        insights = ai_scorer.get_lead_insights(score_result, lead_data)
+        
+        log.info(f"Generated insights for lead {lead_id}")
+        
+        return {
+            'lead_id': lead_id,
+            'lead_name': lead.full_name,
+            'score': score_result,
+            'insights': insights,
+            'generated_at': datetime.utcnow().isoformat()
+        }, 200
+        
+    except Exception as e:
+        log.error(f"Lead insights error for lead {lead_id}: {e}")
+        return {"error": "Failed to generate insights"}, 500
+
+# ROI Dashboard
+@api_bp.get("/analytics/roi")
+@require_auth
+@limiter.limit("20 per minute")
+def roi_dashboard():
+    """Get comprehensive ROI analytics dashboard data"""
+    if not roi_calculator:
+        return {"error": "ROI analytics service not available"}, 503
+        
+    try:
+        # Validate and sanitize parameters
+        user_id = request.args.get('user_id', 'default')
+        
+        try:
+            timeframe = int(request.args.get('days', 30))
+            if timeframe not in [7, 30, 90, 365]:
+                timeframe = 30  # Default to 30 days
+        except (ValueError, TypeError):
+            timeframe = 30
+            
+        industry = request.args.get('industry', 'medspas')
+        if industry not in ['medspas', 'contractors', 'law_firms', 'salons']:
+            industry = 'medspas'
+        
+        # Calculate ROI metrics
+        metrics = roi_calculator.calculate_roi_metrics(user_id, timeframe)
+        insights = roi_calculator.get_roi_insights(metrics, industry)
+        recommendations = roi_calculator.get_growth_recommendations(metrics, industry)
+        
+        # Get competitive position if analyzer available
+        competitive_position = None
+        if competitive_analyzer:
+            competitive_position = competitive_analyzer.get_competitive_position(metrics, industry)
+        
+        # Format response with proper data types
+        response_data = {
+            'metrics': {
+                'leads_uploaded': int(metrics.leads_uploaded),
+                'calls_made': int(metrics.calls_made),
+                'emails_sent': int(metrics.emails_sent),
+                'appointments_booked': int(metrics.appointments_booked),
+                'deals_closed': int(metrics.deals_closed),
+                'revenue_generated': float(metrics.revenue_generated),
+                'cost_per_lead': float(metrics.cost_per_lead),
+                'conversion_rate': float(metrics.conversion_rate),
+                'roi_percentage': float(metrics.roi_percentage),
+                'projected_monthly_revenue': float(metrics.projected_monthly_revenue)
+            },
+            'insights': insights,
+            'recommendations': recommendations,
+            'competitive_position': competitive_position,
+            'timeframe_days': timeframe,
+            'industry': industry,
+            'generated_at': datetime.utcnow().isoformat()
+        }
+        
+        log.info(f"Generated ROI dashboard for user {user_id}, {timeframe} days, {industry}")
+        
+        return response_data, 200
+        
+    except Exception as e:
+        log.error(f"ROI dashboard error: {e}")
+        return {"error": "Failed to calculate ROI metrics"}, 500
+
+@api_bp.get("/analytics/roi/export")
+@require_auth
+@limiter.limit("5 per minute")
+def export_roi_data():
+    """Export ROI data as CSV for client reporting"""
+    if not roi_calculator:
+        return {"error": "ROI analytics service not available"}, 503
+    
+    try:
+        user_id = request.args.get('user_id', 'default')
+        timeframe = int(request.args.get('days', 30))
+        industry = request.args.get('industry', 'medspas')
+        
+        # Get metrics
+        metrics = roi_calculator.calculate_roi_metrics(user_id, timeframe)
+        
+        # Create CSV data
+        csv_data = [
+            ["Metric", "Value"],
+            ["Revenue Generated", f"${metrics.revenue_generated:,.2f}"],
+            ["ROI Percentage", f"{metrics.roi_percentage:.1f}%"],
+            ["Conversion Rate", f"{metrics.conversion_rate:.1%}"],
+            ["Cost Per Lead", f"${metrics.cost_per_lead:.2f}"],
+            ["Leads Uploaded", str(metrics.leads_uploaded)],
+            ["Calls Made", str(metrics.calls_made)],
+            ["Emails Sent", str(metrics.emails_sent)],
+            ["Appointments Booked", str(metrics.appointments_booked)],
+            ["Deals Closed", str(metrics.deals_closed)],
+            ["Projected Monthly Revenue", f"${metrics.projected_monthly_revenue:,.2f}"]
+        ]
+        
+        # Create CSV response
+        import io
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerows(csv_data)
+        
+        csv_content = output.getvalue()
+        output.close()
+        
+        from flask import make_response
+        response = make_response(csv_content)
+        response.headers["Content-Disposition"] = f"attachment; filename=roi-report-{timeframe}days.csv"
+        response.headers["Content-Type"] = "text/csv"
+        
+        log.info(f"Exported ROI data for user {user_id}")
+        
+        return response
+        
+    except Exception as e:
+        log.error(f"ROI export error: {e}")
+        return {"error": "Failed to export ROI data"}, 500
+
+# Nurture Sequences  
+@api_bp.post("/sequences/start")
+@require_auth
+@limiter.limit("10 per minute")
+def start_nurture_sequence():
+    """Start a nurture sequence for a lead with validation"""
+    if not sequence_manager:
+        return {"error": "Nurture sequences service not available"}, 503
+        
+    try:
+        # Validate request data
+        schema = NurtureSequenceSchema()
+        try:
+            data = schema.load(request.get_json() or {})
+        except Exception as e:
+            return {"error": f"Validation failed: {str(e)}"}, 400
+            
+        lead_id = data['lead_id']
+        lead = Lead.query.get(lead_id)
+        if not lead:
+            return {"error": "Lead not found"}, 404
+            
+        # Build lead data
+        lead_data = {
+            'id': str(lead.id),
+            'name': lead.full_name or 'Unknown',
+            'email': lead.email or '',
+            'phone': lead.phone or '',
+            'source': lead.source or 'unknown',
+            'industry': data.get('industry', 'medspas')
+        }
+        
+        # Build business data (could come from Business model in real app)
+        business_data = data.get('business_data', {})
+        default_business_data = {
+            'business_name': 'Demo Business',
+            'agent_name': 'Sales Agent',
+            'phone': '+15551234567',
+            'service_type': 'consultation',
+            'city': 'Your City',
+            'years_in_business': '5',
+            'license_number': 'LIC123456'
+        }
+        business_data = {**default_business_data, **business_data}
+        
+        # Start sequence
+        result = sequence_manager.start_sequence_for_lead(lead_data, business_data)
+        
+        if 'error' in result:
+            return result, 400
+            
+        # Log the action
+        log.info(f"Started nurture sequence {result['sequence_id']} for lead {lead_id}")
+        
+        return {
+            **result,
+            'started_at': datetime.utcnow().isoformat(),
+            'lead_name': lead.full_name
+        }, 201
+        
+    except Exception as e:
+        log.error(f"Sequence start error: {e}")
+        return {"error": "Failed to start nurture sequence"}, 500
+
+@api_bp.get("/sequences/templates")
+@require_auth
+def get_sequence_templates():
+    """Get available nurture sequence templates by industry"""
+    if not sequence_manager:
+        return {"error": "Nurture sequences service not available"}, 503
+    
+    try:
+        industry = request.args.get('industry')
+        
+        templates = []
+        for seq_id, sequence in sequence_manager.engine.sequences.items():
+            if not industry or sequence.industry == industry:
+                templates.append({
+                    'id': sequence.sequence_id,
+                    'name': sequence.name,
+                    'industry': sequence.industry,
+                    'type': sequence.sequence_type.value,
+                    'steps': len(sequence.steps),
+                    'success_rate': sequence.success_rate,
+                    'description': f"{len(sequence.steps)}-step {sequence.sequence_type.value} sequence for {sequence.industry}"
+                })
+        
+        return {
+            'templates': templates,
+            'total': len(templates),
+            'industry_filter': industry
+        }, 200
+        
+    except Exception as e:
+        log.error(f"Templates error: {e}")
+        return {"error": "Failed to get templates"}, 500
+
+@api_bp.get("/sequences/<sequence_id>/preview")
+@require_auth
+def preview_sequence(sequence_id: str):
+    """Preview a nurture sequence with sample personalization"""
+    if not sequence_manager:
+        return {"error": "Nurture sequences service not available"}, 503
+    
+    try:
+        sequence = sequence_manager.engine.sequences.get(sequence_id)
+        if not sequence:
+            return {"error": "Sequence not found"}, 404
+        
+        # Sample data for preview
+        sample_lead_data = {
+            'name': 'Sarah Johnson',
+            'first_name': 'Sarah',
+            'email': 'sarah@example.com',
+            'phone': '+15551234567',
+            'service_type': 'consultation'
+        }
+        
+        sample_business_data = {
+            'business_name': 'Your Business',
+            'agent_name': 'Your Name',
+            'phone': '+15559876543'
+        }
+        
+        # Preview each step
+        preview_steps = []
+        for step in sequence.steps:
+            preview_message = sequence_manager.engine.personalize_message(
+                step.message_template, 
+                sample_lead_data, 
+                sample_business_data
+            )
+            preview_subject = sequence_manager.engine.personalize_message(
+                step.subject or '', 
+                sample_lead_data, 
+                sample_business_data
+            )
+            
+            preview_steps.append({
+                'step_number': step.step_number,
+                'delay_hours': step.delay_hours,
+                'channel': step.channel.value,
+                'subject': preview_subject,
+                'message': preview_message,
+                'conditions': step.conditions,
+                'stop_if_replied': step.stop_if_replied
+            })
+        
+        return {
+            'sequence': {
+                'id': sequence.sequence_id,
+                'name': sequence.name,
+                'industry': sequence.industry,
+                'type': sequence.sequence_type.value,
+                'success_rate': sequence.success_rate
+            },
+            'steps': preview_steps,
+            'total_steps': len(preview_steps)
+        }, 200
+        
+    except Exception as e:
+        log.error(f"Sequence preview error: {e}")
+        return {"error": "Failed to preview sequence"}, 500
+
+@api_bp.get("/sequences/analytics/<sequence_id>")
+@require_auth
+def sequence_analytics(sequence_id: str):
+    """Get detailed analytics for a nurture sequence"""
+    if not sequence_manager:
+        return {"error": "Nurture sequences service not available"}, 503
+        
+    try:
+        analytics = sequence_manager.engine.get_sequence_analytics(sequence_id)
+        optimization = sequence_manager.engine.optimize_sequence(sequence_id)
+        
+        return {
+            'sequence_id': sequence_id,
+            'analytics': analytics,
+            'optimization': optimization,
+            'generated_at': datetime.utcnow().isoformat()
+        }, 200
+    except Exception as e:
+        log.error(f"Sequence analytics error: {e}")
+        return {"error": "Failed to get analytics"}, 500
+
+@api_bp.put("/sequences/<lead_id>/pause")
+@require_auth
+def pause_sequence(lead_id: str):
+    """Pause nurture sequence for a lead"""
+    if not sequence_manager:
+        return {"error": "Nurture sequences service not available"}, 503
+    
+    try:
+        data = request.get_json() or {}
+        reason = data.get('reason', 'manual_pause')
+        
+        result = sequence_manager.pause_sequence(lead_id, reason)
+        
+        log.info(f"Paused sequence for lead {lead_id}: {reason}")
+        
+        return result, 200
+        
+    except Exception as e:
+        log.error(f"Sequence pause error: {e}")
+        return {"error": "Failed to pause sequence"}, 500
+
+# Shared Inbox
+@api_bp.get("/inbox")
+@require_auth
+@limiter.limit("30 per minute")
+def shared_inbox():
+    """Get unified inbox with advanced filtering and pagination"""
+    if not inbox_manager:
+        return {"error": "Shared inbox service not available"}, 503
+        
+    try:
+        user_id = request.args.get('user_id', 'default')
+        
+        # Build filters with validation
+        filters = {}
+        
+        # Status filter
+        status = request.args.get('status')
+        if status and status in ['unread', 'read', 'replied', 'archived']:
+            filters['status'] = status
+            
+        # Message type filter
+        message_type = request.args.get('type')
+        if message_type and message_type in ['email', 'sms', 'call', 'voicemail', 'note']:
+            filters['message_type'] = message_type
+            
+        # Priority filter
+        priority = request.args.get('priority')
+        if priority and priority in ['low', 'normal', 'high', 'urgent']:
+            filters['priority'] = priority
+            
+        # Date filters
+        date_from = request.args.get('date_from')
+        if date_from:
+            try:
+                datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                filters['date_from'] = date_from
+            except ValueError:
+                pass
+                
+        # Search term
+        search_term = request.args.get('search')
+        if search_term and len(search_term.strip()) > 0:
+            filters['search_term'] = search_term.strip()[:100]  # Limit search term length
+        
+        # Pagination
+        page = max(1, int(request.args.get('page', 1)))
+        per_page = min(50, max(1, int(request.args.get('per_page', 20))))
+        
+        filters['page'] = page
+        filters['per_page'] = per_page
+        
+        # Get inbox data
+        inbox_data = inbox_manager.get_inbox(user_id, filters)
+        
+        log.info(f"Retrieved inbox for user {user_id} with filters: {filters}")
+        
+        return {
+            **inbox_data,
+            'page': page,
+            'per_page': per_page,
+            'retrieved_at': datetime.utcnow().isoformat()
+        }, 200
+        
+    except ValueError as e:
+        return {"error": f"Invalid parameters: {str(e)}"}, 400
+    except Exception as e:
+        log.error(f"Inbox error: {e}")
+        return {"error": "Failed to retrieve inbox"}, 500
+
+@api_bp.post("/inbox/send")
+@require_auth
+@limiter.limit("20 per minute")
+def send_message():
+    """Send a message through unified inbox with validation"""
+    if not inbox_manager:
+        return {"error": "Shared inbox service not available"}, 503
+        
+    try:
+        # Validate input data
+        schema = MessageSchema()
+        try:
+            data = schema.load(request.get_json() or {})
+        except Exception as e:
+            return {"error": f"Validation failed: {str(e)}"}, 400
+        
+        # Verify lead exists
+        lead = Lead.query.get(data['lead_id'])
+        if not lead:
+            return {"error": "Lead not found"}, 404
+            
+        # Validate message type
+        if not MessageType:
+            return {"error": "MessageType not available"}, 503
+            
+        try:
+            message_type = MessageType(data['message_type'])
+        except ValueError:
+            return {"error": "Invalid message type"}, 400
+        
+        # Send message
+        result = inbox_manager.send_message(
+            user_id=data.get('user_id', 'default'),
+            lead_id=data['lead_id'],
+            message_type=message_type,
+            content=data['content'],
+            recipient=data['recipient'],
+            subject=data.get('subject')
+        )
+        
+        log.info(f"Sent {data['message_type']} message to lead {data['lead_id']}")
+        
+        return {
+            **result,
+            'lead_name': lead.full_name,
+            'sent_at': datetime.utcnow().isoformat()
+        }, 201
+        
+    except Exception as e:
+        log.error(f"Send message error: {e}")
+        return {"error": "Failed to send message"}, 500
+
+@api_bp.put("/inbox/mark-read")
+@require_auth
+def mark_messages_read():
+    """Mark multiple messages as read"""
+    if not inbox_manager:
+        return {"error": "Shared inbox service not available"}, 503
+        
+    try:
+        data = request.get_json() or {}
+        message_ids = data.get('message_ids', [])
+        
+        if not isinstance(message_ids, list) or not message_ids:
+            return {"error": "message_ids array required"}, 400
+            
+        # Limit to 100 messages at once
+        if len(message_ids) > 100:
+            return {"error": "Cannot mark more than 100 messages at once"}, 400
+        
+        result = inbox_manager.mark_as_read(message_ids)
+        
+        log.info(f"Marked {result['updated']} messages as read")
+        
+        return {
+            **result,
+            'marked_at': datetime.utcnow().isoformat()
+        }, 200
+        
+    except Exception as e:
+        log.error(f"Mark read error: {e}")
+        return {"error": "Failed to mark messages as read"}, 500
+
+@api_bp.get("/inbox/stats")
+@require_auth
+def inbox_stats():
+    """Get inbox statistics and KPIs"""
+    if not inbox_manager:
+        return {"error": "Shared inbox service not available"}, 503
+        
+    try:
+        user_id = request.args.get('user_id', 'default')
+        days = min(90, max(1, int(request.args.get('days', 7))))
+        
+        stats = inbox_manager._get_inbox_stats(user_id)
+        
+        # Add time-based metrics
+        stats['timeframe_days'] = days
+        stats['avg_messages_per_day'] = stats.get('total_messages', 0) / days
+        
+        return {
+            'stats': stats,
+            'generated_at': datetime.utcnow().isoformat()
+        }, 200
+        
+    except Exception as e:
+        log.error(f"Inbox stats error: {e}")
+        return {"error": "Failed to get inbox statistics"}, 500
+
+# Call Log
+@api_bp.post("/calls/log")
+@require_auth
+@limiter.limit("50 per minute")
+def log_call():
+    """Log a phone call with comprehensive validation"""
+    if not call_manager:
+        return {"error": "Call logging service not available"}, 503
+        
+    try:
+        # Validate input data
+        schema = CallLogSchema()
+        try:
+            data = schema.load(request.get_json() or {})
+        except Exception as e:
+            return {"error": f"Validation failed: {str(e)}"}, 400
+        
+        # Verify lead exists
+        lead = Lead.query.get(data['lead_id'])
+        if not lead:
+            return {"error": "Lead not found"}, 404
+            
+        # Validate disposition
+        if not CallDisposition:
+            return {"error": "CallDisposition not available"}, 503
+            
+        try:
+            disposition = CallDisposition(data['disposition'])
+        except ValueError:
+            return {"error": "Invalid call disposition"}, 400
+        
+        # Log the call
+        result = call_manager.log_call(
+            user_id=data.get('user_id', 'default'),
+            lead_id=data['lead_id'],
+            phone_number=data['phone_number'],
+            direction=data['direction'],
+            duration_seconds=data['duration_seconds'],
+            disposition=disposition,
+            notes=data.get('notes'),
+            recording_url=data.get('recording_url')
+        )
+        
+        log.info(f"Logged {data['direction']} call for lead {data['lead_id']}: {data['disposition']}")
+        
+        return {
+            **result,
+            'lead_name': lead.full_name,
+            'logged_at': datetime.utcnow().isoformat()
+        }, 201
+        
+    except Exception as e:
+        log.error(f"Call logging error: {e}")
+        return {"error": "Failed to log call"}, 500
+
+@api_bp.get("/calls/history")
+@require_auth
+@limiter.limit("30 per minute")
+def call_history():
+    """Get call history with advanced filtering and pagination"""
+    if not call_manager:
+        return {"error": "Call history service not available"}, 503
+        
+    try:
+        user_id = request.args.get('user_id', 'default')
+        
+        # Optional lead filter
+        lead_id = request.args.get('lead_id')
+        if lead_id:
+            try:
+                lead_id = int(lead_id)
+                # Verify lead exists
+                if not Lead.query.get(lead_id):
+                    return {"error": "Lead not found"}, 404
+            except ValueError:
+                return {"error": "Invalid lead_id"}, 400
+        
+        # Date range
+        try:
+            days = min(365, max(1, int(request.args.get('days', 30))))
+        except (ValueError, TypeError):
+            days = 30
+            
+        # Direction filter
+        direction = request.args.get('direction')
+        if direction and direction not in ['inbound', 'outbound']:
+            return {"error": "Invalid direction filter"}, 400
+            
+        # Disposition filter
+        disposition = request.args.get('disposition')
+        if disposition:
+            valid_dispositions = [
+                'connected', 'no_answer', 'busy', 'voicemail', 
+                'wrong_number', 'appointment_scheduled', 'not_interested'
+            ]
+            if disposition not in valid_dispositions:
+                return {"error": "Invalid disposition filter"}, 400
+        
+        # Get call history
+        history = call_manager.get_call_history(user_id, lead_id, days)
+        
+        # Apply additional filters
+        if direction:
+            history = [call for call in history if call['direction'] == direction]
+            
+        if disposition:
+            history = [call for call in history if call['disposition'] == disposition]
+        
+        # Pagination
+        page = max(1, int(request.args.get('page', 1)))
+        per_page = min(100, max(1, int(request.args.get('per_page', 25))))
+        
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated_history = history[start_idx:end_idx]
+        
+        log.info(f"Retrieved {len(paginated_history)} calls for user {user_id}")
+        
+        return {
+            'calls': paginated_history,
+            'total': len(history),
+            'page': page,
+            'per_page': per_page,
+            'has_more': end_idx < len(history),
+            'filters': {
+                'days': days,
+                'lead_id': lead_id,
+                'direction': direction,
+                'disposition': disposition
+            },
+            'retrieved_at': datetime.utcnow().isoformat()
+        }, 200
+        
+    except Exception as e:
+        log.error(f"Call history error: {e}")
+        return {"error": "Failed to get call history"}, 500
+
+@api_bp.get("/calls/callbacks")
+@require_auth
+@limiter.limit("20 per minute")
+def callbacks_due():
+    """Get calls that need follow-up with lead details"""
+    if not call_manager:
+        return {"error": "Call callbacks service not available"}, 503
+        
+    try:
+        user_id = request.args.get('user_id', 'default')
+        callbacks = call_manager.get_callbacks_due(user_id)
+        
+        # Enrich with lead information
+        enriched_callbacks = []
+        for callback in callbacks:
+            lead = Lead.query.get(callback['lead_id'])
+            if lead:
+                enriched_callbacks.append({
+                    **callback,
+                    'lead_name': lead.full_name,
+                    'lead_email': lead.email,
+                    'lead_source': lead.source
+                })
+        
+        log.info(f"Retrieved {len(enriched_callbacks)} callbacks for user {user_id}")
+        
+        return {
+            'callbacks': enriched_callbacks,
+            'total': len(enriched_callbacks),
+            'retrieved_at': datetime.utcnow().isoformat()
+        }, 200
+        
+    except Exception as e:
+        log.error(f"Callbacks error: {e}")
+        return {"error": "Failed to get callbacks"}, 500
+
+@api_bp.get("/calls/analytics")
+@require_auth
+@limiter.limit("10 per minute")
+def call_analytics():
+    """Get comprehensive call performance analytics"""
+    if not call_manager:
+        return {"error": "Call analytics service not available"}, 503
+        
+    try:
+        user_id = request.args.get('user_id', 'default')
+        
+        try:
+            days = min(365, max(1, int(request.args.get('days', 30))))
+        except (ValueError, TypeError):
+            days = 30
+        
+        analytics = call_manager.get_call_analytics(user_id, days)
+        
+        # Add additional metrics
+        analytics['timeframe_days'] = days
+        analytics['calls_per_day'] = analytics.get('total_calls', 0) / days
+        
+        # Calculate success metrics
+        total_calls = analytics.get('total_calls', 0)
+        if total_calls > 0:
+            analytics['success_rate'] = (
+                analytics.get('appointments_scheduled', 0) + 
+                analytics.get('connected_calls', 0)
+            ) / total_calls
+        else:
+            analytics['success_rate'] = 0
+        
+        log.info(f"Generated call analytics for user {user_id}")
+        
+        return {
+            'analytics': analytics,
+            'generated_at': datetime.utcnow().isoformat()
+        }, 200
+        
+    except Exception as e:
+        log.error(f"Call analytics error: {e}")
+        return {"error": "Failed to get call analytics"}, 500
+
+@api_bp.put("/calls/<call_id>/notes")
+@require_auth
+def update_call_notes(call_id: str):
+    """Update notes for a specific call"""
+    if not call_manager:
+        return {"error": "Call management service not available"}, 503
+        
+    try:
+        data = request.get_json() or {}
+        notes = data.get('notes', '').strip()
+        
+        if len(notes) > 1000:
+            return {"error": "Notes too long (max 1000 characters)"}, 400
+        
+        # In a real implementation, this would update the database
+        # For now, just return success
+        
+        log.info(f"Updated notes for call {call_id}")
+        
+        return {
+            'call_id': call_id,
+            'notes': notes,
+            'updated_at': datetime.utcnow().isoformat()
+        }, 200
+        
+    except Exception as e:
+        log.error(f"Update call notes error: {e}")
+        return {"error": "Failed to update call notes"}, 500

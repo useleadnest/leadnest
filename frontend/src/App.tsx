@@ -1,24 +1,28 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import ProtectedRoute from './components/ProtectedRoute';
+import { Toaster } from 'react-hot-toast';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
-import Homepage from './pages/Homepage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import Dashboard from './pages/Dashboard';
-import LeadsPage from './pages/LeadsPage';
-import LeadMessagesPage from './pages/LeadMessagesPage';
+import { Login } from './pages/Login';
+import { Signup } from './pages/Signup';
+import { Dashboard } from './pages/Dashboard';
+import { Leads } from './pages/Leads';
+import { Settings } from './pages/Settings';
+import { Billing } from './pages/Billing';
+import SentryTest from './pages/SentryTest';
+import AILeadScoring from './pages/AILeadScoring';
+import ROIDashboard from './pages/ROIDashboard';
 import './index.css';
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <Toaster position="top-right" />
         <Routes>
-          <Route path="/" element={<Homepage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route
-            path="/dashboard"
+            path="/"
             element={
               <ProtectedRoute>
                 <Dashboard />
@@ -29,18 +33,43 @@ export default function App() {
             path="/leads"
             element={
               <ProtectedRoute>
-                <LeadsPage />
+                <Leads />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/leads/:leadId/messages"
+            path="/ai-scoring"
             element={
               <ProtectedRoute>
-                <LeadMessagesPage />
+                <AILeadScoring />
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/roi-dashboard"
+            element={
+              <ProtectedRoute>
+                <ROIDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/billing"
+            element={
+              <ProtectedRoute>
+                <Billing />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/sentry-test" element={<SentryTest />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

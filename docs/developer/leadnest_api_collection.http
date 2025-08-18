@@ -1,0 +1,534 @@
+### LeadNest API Testing Collection
+### Complete HTTP requests for all endpoints
+### Copy to your HTTP client (VS Code REST Client, Postman, etc.)
+
+### ===========================================
+### AUTHENTICATION ENDPOINTS
+### ===========================================
+
+### Register New User
+POST http://localhost:5000/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "SecurePass123!",
+  "business_name": "Elite Med Spa"
+}
+
+### Login User
+POST http://localhost:5000/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "SecurePass123!"
+}
+
+### Refresh Token
+POST http://localhost:5000/auth/refresh
+Authorization: Bearer {{token}}
+
+### Logout
+POST http://localhost:5000/auth/logout
+Authorization: Bearer {{token}}
+
+### ===========================================
+### LEAD MANAGEMENT ENDPOINTS
+### ===========================================
+
+### Get All Leads (with pagination and filtering)
+GET http://localhost:5000/leads?page=1&per_page=20&search=john&status=new&source=google_ads
+Authorization: Bearer {{token}}
+
+### Get Single Lead
+GET http://localhost:5000/leads/lead_123
+Authorization: Bearer {{token}}
+
+### Create New Lead
+POST http://localhost:5000/leads
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "phone": "+15551234567",
+  "business_name": "Doe Enterprises",
+  "notes": "Interested in Botox consultation",
+  "source": "google_ads"
+}
+
+### Update Lead
+PUT http://localhost:5000/leads/lead_123
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "John Doe Updated",
+  "status": "contacted",
+  "notes": "Called and left voicemail"
+}
+
+### Delete Lead
+DELETE http://localhost:5000/leads/lead_123
+Authorization: Bearer {{token}}
+
+### Bulk Import Leads (CSV)
+POST http://localhost:5000/leads/bulk-import
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data
+
+# Note: Attach CSV file with headers: name,email,phone,business_name,notes
+
+### Get Import Status
+GET http://localhost:5000/leads/import-status/job_abc123
+Authorization: Bearer {{token}}
+
+### Export Leads to CSV
+GET http://localhost:5000/leads/export?format=csv&status=new
+Authorization: Bearer {{token}}
+
+### ===========================================
+### AI LEAD SCORING ENDPOINTS
+### ===========================================
+
+### Bulk Score Leads
+POST http://localhost:5000/api/ai/bulk-score-leads
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "leads": [
+    {
+      "id": "lead_123",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "+15551234567",
+      "source": "google_ads",
+      "industry": "medspas",
+      "business_name": "Elite Med Spa"
+    },
+    {
+      "id": "lead_456",
+      "name": "Jane Smith",
+      "email": "jane@company.com",
+      "phone": "+15559876543",
+      "source": "referral",
+      "industry": "legal",
+      "business_name": "Smith Law Firm"
+    }
+  ]
+}
+
+### Get Scored Leads with Filtering
+GET http://localhost:5000/api/ai/scored-leads?page=1&per_page=20&min_score=70&grade=A&source=google_ads
+Authorization: Bearer {{token}}
+
+### Get Lead Score by ID
+GET http://localhost:5000/api/ai/lead-score/lead_123
+Authorization: Bearer {{token}}
+
+### Export Lead Scores to CSV
+GET http://localhost:5000/api/ai/export-scores
+Authorization: Bearer {{token}}
+
+### Update Lead Score Feedback (for AI training)
+POST http://localhost:5000/api/ai/feedback
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lead_id": "lead_123",
+  "actual_outcome": "converted",
+  "deal_value": 1200,
+  "feedback": "Great lead, AI was accurate"
+}
+
+### ===========================================
+### ROI ANALYTICS ENDPOINTS
+### ===========================================
+
+### Get ROI Metrics
+GET http://localhost:5000/api/analytics/roi?days=30&industry=medspas&date_range=2025-07-01,2025-07-31
+Authorization: Bearer {{token}}
+
+### Get Detailed Analytics
+GET http://localhost:5000/api/analytics/detailed?days=90&breakdown=source
+Authorization: Bearer {{token}}
+
+### Get Competitive Benchmarks
+GET http://localhost:5000/api/analytics/benchmarks?industry=medspas&region=us
+Authorization: Bearer {{token}}
+
+### Export ROI Report (PDF)
+GET http://localhost:5000/api/analytics/roi/export?days=30&format=pdf
+Authorization: Bearer {{token}}
+
+### Export ROI Report (Excel)
+GET http://localhost:5000/api/analytics/roi/export?days=30&format=excel
+Authorization: Bearer {{token}}
+
+### Get Revenue Forecast
+GET http://localhost:5000/api/analytics/forecast?months=6
+Authorization: Bearer {{token}}
+
+### ===========================================
+### NURTURE SEQUENCES ENDPOINTS
+### ===========================================
+
+### Get Available Templates
+GET http://localhost:5000/api/nurture/templates?industry=medspas
+Authorization: Bearer {{token}}
+
+### Get Template Details
+GET http://localhost:5000/api/nurture/templates/medspa_initial
+Authorization: Bearer {{token}}
+
+### Preview Sequence Messages
+POST http://localhost:5000/api/nurture/preview
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "template_id": "medspa_initial",
+  "lead_data": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "service_interest": "Botox consultation",
+    "phone": "+15551234567"
+  },
+  "business_data": {
+    "business_name": "Elite Med Spa",
+    "agent_name": "Sarah Johnson",
+    "phone": "+15559876543"
+  }
+}
+
+### Start Nurture Sequence
+POST http://localhost:5000/api/nurture/start-sequence
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lead_id": "lead_123",
+  "template_id": "medspa_initial",
+  "lead_data": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "service_interest": "Botox consultation"
+  },
+  "business_data": {
+    "business_name": "Elite Med Spa",
+    "agent_name": "Sarah Johnson"
+  }
+}
+
+### Get Active Sequences
+GET http://localhost:5000/api/nurture/sequences?status=active&page=1&per_page=20
+Authorization: Bearer {{token}}
+
+### Get Sequence Status
+GET http://localhost:5000/api/nurture/sequences/seq_abc123
+Authorization: Bearer {{token}}
+
+### Pause Sequence
+POST http://localhost:5000/api/nurture/sequences/seq_abc123/pause
+Authorization: Bearer {{token}}
+
+### Resume Sequence
+POST http://localhost:5000/api/nurture/sequences/seq_abc123/resume
+Authorization: Bearer {{token}}
+
+### Stop Sequence
+POST http://localhost:5000/api/nurture/sequences/seq_abc123/stop
+Authorization: Bearer {{token}}
+
+### Get Sequence Performance
+GET http://localhost:5000/api/nurture/performance?days=30&template_id=medspa_initial
+Authorization: Bearer {{token}}
+
+### ===========================================
+### SHARED INBOX ENDPOINTS
+### ===========================================
+
+### Get Inbox Messages
+GET http://localhost:5000/api/inbox?status=unread&priority=high&page=1&per_page=20&assigned_to=me
+Authorization: Bearer {{token}}
+
+### Get Conversation Details
+GET http://localhost:5000/api/inbox/conversations/conv_123
+Authorization: Bearer {{token}}
+
+### Send Message
+POST http://localhost:5000/api/inbox/send
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lead_id": "lead_456",
+  "message_type": "email",
+  "content": "Hi John, I have availability Tuesday at 2PM or Wednesday at 10AM for your Botox consultation. Which works better for you?",
+  "recipient": "john@example.com",
+  "subject": "Botox Consultation Scheduling"
+}
+
+### Send SMS Message
+POST http://localhost:5000/api/inbox/send
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lead_id": "lead_456",
+  "message_type": "sms",
+  "content": "Hi John! Sarah from Elite Med Spa. Can you do Tuesday 2PM for your consultation? Reply YES or suggest another time.",
+  "recipient": "+15551234567"
+}
+
+### Mark as Read
+POST http://localhost:5000/api/inbox/conversations/conv_123/read
+Authorization: Bearer {{token}}
+
+### Assign to Team Member
+POST http://localhost:5000/api/inbox/conversations/conv_123/assign
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "assigned_to": "sarah@elitemedmpa.com"
+}
+
+### Add Internal Note
+POST http://localhost:5000/api/inbox/conversations/conv_123/notes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "note": "Lead is very interested but price-sensitive. Mention current promotion.",
+  "visibility": "internal"
+}
+
+### Get Inbox Statistics
+GET http://localhost:5000/api/inbox/stats?days=7&agent=all
+Authorization: Bearer {{token}}
+
+### Get Team Performance
+GET http://localhost:5000/api/inbox/team-stats?days=30
+Authorization: Bearer {{token}}
+
+### ===========================================
+### CALL MANAGEMENT ENDPOINTS
+### ===========================================
+
+### Log Call
+POST http://localhost:5000/api/calls/log
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lead_id": "lead_456",
+  "phone_number": "+15551234567",
+  "direction": "outbound",
+  "duration_seconds": 180,
+  "disposition": "connected",
+  "outcome": "appointment_scheduled",
+  "notes": "Scheduled Botox consultation for next Tuesday at 2PM. Very interested client.",
+  "follow_up_date": "2025-08-24T14:00:00Z"
+}
+
+### Get Call History for Lead
+GET http://localhost:5000/api/calls/history?lead_id=lead_456&days=30
+Authorization: Bearer {{token}}
+
+### Get All Call History
+GET http://localhost:5000/api/calls/history?days=7&page=1&per_page=20
+Authorization: Bearer {{token}}
+
+### Get Call Analytics
+GET http://localhost:5000/api/calls/analytics?days=30&agent=all
+Authorization: Bearer {{token}}
+
+### Get Call Performance by Agent
+GET http://localhost:5000/api/calls/agent-stats?days=30&agent=sarah@elitemedpa.com
+Authorization: Bearer {{token}}
+
+### Schedule Callback
+POST http://localhost:5000/api/calls/schedule-callback
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lead_id": "lead_456",
+  "scheduled_time": "2025-08-18T10:00:00Z",
+  "notes": "Follow up on pricing questions",
+  "priority": "high"
+}
+
+### Get Scheduled Callbacks
+GET http://localhost:5000/api/calls/callbacks?date=2025-08-18&agent=all
+Authorization: Bearer {{token}}
+
+### ===========================================
+### BUSINESS & SETTINGS ENDPOINTS
+### ===========================================
+
+### Get Business Profile
+GET http://localhost:5000/business/profile
+Authorization: Bearer {{token}}
+
+### Update Business Profile
+PUT http://localhost:5000/business/profile
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "business_name": "Elite Med Spa & Wellness",
+  "industry": "medspas",
+  "phone": "+15559876543",
+  "email": "info@elitemedmpa.com",
+  "website": "https://elitemedmpa.com",
+  "address": {
+    "street": "123 Main St",
+    "city": "Dallas",
+    "state": "TX",
+    "zip": "75201"
+  }
+}
+
+### Get Team Members
+GET http://localhost:5000/team/members
+Authorization: Bearer {{token}}
+
+### Invite Team Member
+POST http://localhost:5000/team/invite
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "newteammember@elitemedmpa.com",
+  "role": "agent",
+  "permissions": ["view_leads", "edit_leads", "send_messages"]
+}
+
+### Get Integration Settings
+GET http://localhost:5000/integrations
+Authorization: Bearer {{token}}
+
+### Configure Twilio Integration
+POST http://localhost:5000/integrations/twilio
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "account_sid": "your_twilio_account_sid",
+  "auth_token": "your_twilio_auth_token",
+  "phone_number": "+15559876543"
+}
+
+### Test Integration
+POST http://localhost:5000/integrations/twilio/test
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "test_number": "+15551234567",
+  "message": "Test message from LeadNest"
+}
+
+### ===========================================
+### WEBHOOKS & NOTIFICATIONS
+### ===========================================
+
+### Get Webhook Settings
+GET http://localhost:5000/webhooks
+Authorization: Bearer {{token}}
+
+### Configure Webhook
+POST http://localhost:5000/webhooks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "url": "https://your-app.com/leadnest-webhook",
+  "events": ["lead.created", "lead.updated", "sequence.completed"],
+  "secret": "your_webhook_secret"
+}
+
+### Test Webhook
+POST http://localhost:5000/webhooks/webhook_123/test
+Authorization: Bearer {{token}}
+
+### ===========================================
+### HEALTH & SYSTEM ENDPOINTS
+### ===========================================
+
+### Health Check
+GET http://localhost:5000/healthz
+
+### System Status
+GET http://localhost:5000/status
+Authorization: Bearer {{token}}
+
+### API Version
+GET http://localhost:5000/version
+
+### ===========================================
+### PRODUCTION ENDPOINTS
+### Replace localhost:5000 with https://api.leadnest.com
+### ===========================================
+
+### Production Health Check
+GET https://api.leadnest.com/healthz
+
+### Production Login
+POST https://api.leadnest.com/auth/login
+Content-Type: application/json
+
+{
+  "email": "your@email.com",
+  "password": "your_password"
+}
+
+### ===========================================
+### ENVIRONMENT VARIABLES FOR TESTING
+### ===========================================
+
+### Set these in your .http client or environment
+### @token = your_jwt_token_here
+### @baseUrl = http://localhost:5000
+### @prodUrl = https://api.leadnest.com
+
+### ===========================================
+### NOTES FOR DEVELOPERS
+### ===========================================
+
+### 1. Always include Authorization header for authenticated endpoints
+### 2. Use Content-Type: application/json for JSON payloads
+### 3. Use Content-Type: multipart/form-data for file uploads
+### 4. Check response status codes: 200=success, 400=bad request, 401=unauthorized, etc.
+### 5. All datetime fields use ISO 8601 format (2025-08-17T10:00:00Z)
+### 6. Phone numbers should include country code (+1 for US)
+### 7. Rate limits apply: 5/min for auth, 10/min for reads, 3/min for exports
+
+### ===========================================
+### ERROR HANDLING EXAMPLES
+### ===========================================
+
+### Expected error format for 400 Bad Request:
+### {
+###   "error": "validation_failed",
+###   "message": "Invalid input data", 
+###   "details": {
+###     "email": ["Invalid email format"],
+###     "phone": ["Phone number is required"]
+###   },
+###   "timestamp": "2025-08-17T10:00:00Z",
+###   "request_id": "req_abc123"
+### }
+
+### Expected error format for 401 Unauthorized:
+### {
+###   "error": "authentication_required",
+###   "message": "Valid JWT token required",
+###   "timestamp": "2025-08-17T10:00:00Z"
+### }
