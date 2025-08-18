@@ -113,11 +113,36 @@ def healthz():
 
 @api_bp.get("/readyz")
 def readyz():
+    """Enhanced readiness check with explicit DATABASE_URL validation"""
+    checks = {}
+    overall_ready = True
+    
+    # Check DATABASE_URL is configured
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        checks["database_url"] = "NOT_SET"
+        overall_ready = False
+    else:
+        checks["database_url"] = "SET"
+    
+    # Check database connectivity
     try:
         db.session.execute(text("SELECT 1"))
-        return {"status": "ready"}
+        checks["database_connection"] = "OK"
     except Exception as e:
-        return {"status": "not-ready", "error": str(e)}, 500
+        checks["database_connection"] = f"FAILED: {str(e)}"
+        overall_ready = False
+    
+    # Check JWT secret
+    jwt_secret = os.environ.get("JWT_SECRET")
+    checks["jwt_secret"] = "SET" if jwt_secret else "NOT_SET"
+    if not jwt_secret:
+        overall_ready = False
+    
+    status_code = 200 if overall_ready else 500
+    status = "ready" if overall_ready else "not-ready"
+    
+    return {"status": status, "checks": checks}, status_code
 
 # ---------- Auth (demo) ----------
 @limiter.limit("10/min")
