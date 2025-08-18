@@ -294,6 +294,33 @@ def twilio_debug():
     except Exception as e:
         return {"error": str(e)}, 500
 
+@api_bp.post("/twilio/inbound-debug")
+def twilio_inbound_debug():
+    """Debug version of Twilio webhook without signature validation"""
+    try:
+        current_app.logger.info("=== DEBUG WEBHOOK CALLED ===")
+        current_app.logger.info(f"Headers: {dict(request.headers)}")
+        current_app.logger.info(f"Form data: {request.form.to_dict()}")
+        current_app.logger.info(f"URL: {request.url}")
+        
+        from_number = request.form.get("From", "")
+        body = request.form.get("Body", "")
+        
+        current_app.logger.info(f"From: {from_number}, Body: {body}")
+        
+        # Try to create TwiML response without database operations
+        resp = MessagingResponse()
+        resp.message("DEBUG: Got your message! Webhook is working.")
+        
+        xml_response = str(resp)
+        current_app.logger.info(f"TwiML Response: {xml_response}")
+        
+        return xml_response, 200, {"Content-Type": "text/xml"}
+        
+    except Exception as e:
+        current_app.logger.exception(f"Debug webhook error: {e}")
+        return f"ERROR: {str(e)}", 500
+
 @api_bp.post("/twilio/inbound")
 def twilio_inbound():
     """
@@ -312,19 +339,25 @@ def twilio_inbound():
         sig = request.headers.get("X-Twilio-Signature", "")
         auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
         
+        current_app.logger.info(f"Twilio webhook signature validation - URL: {url_for_sig}, has_signature: {bool(sig)}")
+        
         if not auth_token:
             # Misconfigured env -> treat as forbidden so you'll see 403 in logs
             current_app.logger.error("TWILIO_AUTH_TOKEN not configured")
             return "", 403
         
         validator = RequestValidator(auth_token)
-        if not validator.validate(url_for_sig, form_params, sig):
+        is_valid = validator.validate(url_for_sig, form_params, sig)
+        current_app.logger.info(f"Twilio signature validation result: {is_valid}")
+        
+        if not is_valid:
             # Signature mismatch => 403 Forbidden
             current_app.logger.warning(
                 "Invalid Twilio signature validation failed",
                 extra={
                     "url": url_for_sig,
                     "has_signature": bool(sig),
+                    "signature": sig[:20] + "..." if sig else "",  # Log first 20 chars for debugging
                     "form_params_keys": list(form_params.keys())
                 }
             )
@@ -334,44 +367,56 @@ def twilio_inbound():
         from_number = request.form.get("From", "")
         body = request.form.get("Body", "")
 
+        current_app.logger.info(f"Processing SMS from {from_number}: {body}")
+
         # Try database operations in try/catch to prevent 500 errors
         try:
-            # Find or create lead
-            lead = Lead.query.filter_by(phone=from_number).first()
-            if not lead:
-                lead = Lead(phone=from_number, source="sms", status="new", business_id=1)
-                db.session.add(lead)
-                db.session.flush()
+            # Only try database operations if DATABASE_URL is configured
+            if os.environ.get("DATABASE_URL"):
+                # Find or create lead
+                lead = Lead.query.filter_by(phone=from_number).first()
+                if not lead:
+                    lead = Lead(phone=from_number, source="sms", status="new", business_id=1)
+                    db.session.add(lead)
+                    db.session.flush()
 
-            # Find or create conversation
-            convo = Conversation.query.filter_by(lead_id=lead.id, channel="sms").first()
-            if not convo:
-                convo = Conversation(lead_id=lead.id, channel="sms")
-                db.session.add(convo)
-                db.session.flush()
+                # Find or create conversation
+                convo = Conversation.query.filter_by(lead_id=lead.id, channel="sms").first()
+                if not convo:
+                    convo = Conversation(lead_id=lead.id, channel="sms")
+                    db.session.add(convo)
+                    db.session.flush()
 
-            # Add message
-            db.session.add(Message(
-                conversation_id=convo.id, 
-                role="user", 
-                text=body, 
-                ts=datetime.utcnow()
-            ))
-            db.session.commit()
+                # Add message
+                db.session.add(Message(
+                    conversation_id=convo.id, 
+                    role="user", 
+                    text=body, 
+                    ts=datetime.utcnow()
+                ))
+                db.session.commit()
+                current_app.logger.info("SMS saved to database successfully")
+            else:
+                current_app.logger.warning("DATABASE_URL not set, skipping database operations")
 
-            # Auto-reply with TwiML
+            # Auto-reply with TwiML (always send reply regardless of DB status)
             resp = MessagingResponse()
             resp.message("Thanks! We got your message and will reply shortly.")
             
+            xml_response = str(resp)
+            current_app.logger.info(f"Sending TwiML response: {xml_response}")
+            
             # Return 200 immediately so Twilio stops retrying
-            return str(resp), 200, {"Content-Type": "text/xml"}
+            return xml_response, 200, {"Content-Type": "text/xml"}
             
         except Exception as db_error:
             current_app.logger.exception(f"Database error in Twilio webhook: {db_error}")
             # Still return a TwiML response even if DB fails
             resp = MessagingResponse()
             resp.message("Message received!")
-            return str(resp), 200, {"Content-Type": "text/xml"}
+            xml_response = str(resp)
+            current_app.logger.info(f"Sending fallback TwiML response: {xml_response}")
+            return xml_response, 200, {"Content-Type": "text/xml"}
         
     except Exception as e:
         current_app.logger.exception(f"Twilio webhook error: {e}")
