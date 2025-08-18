@@ -316,7 +316,7 @@ def twilio_inbound_debug():
         xml_response = str(resp)
         current_app.logger.info(f"TwiML Response: {xml_response}")
         
-        return xml_response, 200, {"Content-Type": "text/xml"}
+        return xml_response, 200, {"Content-Type": "application/xml"}
         
     except Exception as e:
         current_app.logger.exception(f"Debug webhook error: {e}")
@@ -368,7 +368,13 @@ def twilio_inbound():
         from_number = request.form.get("From", "")
         body = request.form.get("Body", "")
 
-        current_app.logger.info(f"Processing SMS from {from_number}: {body}")
+        current_app.logger.info({
+            "twilio_inbound": True, 
+            "from": from_number, 
+            "body": body,
+            "url": url_for_sig,
+            "signature_valid": True
+        })
 
         # Try database operations in try/catch to prevent 500 errors
         try:
@@ -407,8 +413,8 @@ def twilio_inbound():
             xml_response = str(resp)
             current_app.logger.info(f"Sending TwiML response: {xml_response}")
             
-            # Return 200 immediately so Twilio stops retrying
-            return xml_response, 200, {"Content-Type": "text/xml"}
+            # Return TwiML with correct Content-Type for Twilio auto-reply
+            return xml_response, 200, {"Content-Type": "application/xml"}
             
         except Exception as db_error:
             current_app.logger.exception(f"Database error in Twilio webhook: {db_error}")
@@ -417,7 +423,7 @@ def twilio_inbound():
             resp.message("Message received!")
             xml_response = str(resp)
             current_app.logger.info(f"Sending fallback TwiML response: {xml_response}")
-            return xml_response, 200, {"Content-Type": "text/xml"}
+            return xml_response, 200, {"Content-Type": "application/xml"}
         
     except Exception as e:
         current_app.logger.exception(f"Twilio webhook error: {e}")
