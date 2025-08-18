@@ -111,6 +111,36 @@ class NurtureSequenceSchema(Schema):
 def healthz():
     return {"status": "ok"}
 
+@api_bp.get("/deployment-info")
+def deployment_info():
+    """Show current deployment information and available routes"""
+    import subprocess
+    try:
+        # Get current git commit hash
+        commit_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], 
+                                            stderr=subprocess.DEVNULL,
+                                            text=True).strip()[:7]
+    except:
+        commit_hash = "unknown"
+    
+    # Get all available routes
+    routes = []
+    for rule in current_app.url_map.iter_rules():
+        if not rule.rule.startswith('/static'):
+            routes.append({
+                "endpoint": rule.rule,
+                "methods": list(rule.methods - {'HEAD', 'OPTIONS'})
+            })
+    
+    return {
+        "deployment_time": datetime.utcnow().isoformat(),
+        "commit_hash": commit_hash,
+        "total_routes": len(routes),
+        "routes": sorted(routes, key=lambda x: x["endpoint"]),
+        "stripe_endpoints_present": any("/stripe/" in r["endpoint"] for r in routes),
+        "twilio_endpoints_present": any("/twilio/" in r["endpoint"] for r in routes)
+    }
+
 @api_bp.get("/readyz")
 def readyz():
     """Enhanced readiness check with explicit DATABASE_URL validation"""
