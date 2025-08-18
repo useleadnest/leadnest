@@ -4,7 +4,7 @@
 
 ### Frontend Environment Variables (Vercel)
 ```bash
-VITE_STRIPE_PUBLISHABLE_KEY=pk_live_REDACTED  
+VITE_STRIPE_PUBLISHABLE_KEY=pk_live_REDACTED
 ```
 
 ### Backend Environment Variables (Render)

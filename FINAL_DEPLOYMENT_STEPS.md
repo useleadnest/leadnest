@@ -44,8 +44,8 @@
    
    # Add your actual API keys:
    OPENAI_API_KEY=sk-your-openai-key-here
-   STRIPE_SECRET_KEY=sk_live_your-stripe-secret-key
-   STRIPE_PUBLISHABLE_KEY=pk_live_your-stripe-publishable-key
+   STRIPE_SECRET_KEY=sk_live_[REDACTED]
+   STRIPE_PUBLISHABLE_KEY=pk_live_[REDACTED]
    STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
    ```
 

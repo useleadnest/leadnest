@@ -76,8 +76,8 @@ DATABASE_URL=<from-postgresql-service>
 SECRET_KEY=<generate-32char-random-string>
 OPENAI_API_KEY=sk-...
 YELP_API_KEY=<your-yelp-key>
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_SECRET_KEY=sk_live_[REDACTED]
+STRIPE_WEBHOOK_SECRET=whsec_[REDACTED]
 ENVIRONMENT=production
 FRONTEND_URL=https://useleadnest.com
 ```
@@ -112,7 +112,7 @@ vercel env add REACT_APP_API_URL
 # Enter: https://LeadNest-api.onrender.com
 
 vercel env add REACT_APP_STRIPE_PUBLISHABLE_KEY  
-# Enter: pk_live_...
+# Enter: pk_live_[REDACTED]
 ```
 
 #### 3. Deploy

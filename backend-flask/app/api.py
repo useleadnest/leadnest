@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
 import logging, csv, io, os
 
@@ -280,15 +280,30 @@ def create_booking():
 # ---------- Twilio ----------
 @api_bp.post("/twilio/inbound")
 def twilio_inbound():
+    """Handle inbound SMS from Twilio with proper signature validation."""
     # Validate signature (protects from spoofed requests)
     auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
     if auth_token:
         validator = RequestValidator(auth_token)
         signature = request.headers.get("X-Twilio-Signature", "")
-        public = os.environ.get("PUBLIC_BASE_URL", "")
-        # Render may pass http internally, so prefer the configured public base
-        url = public + "/twilio/inbound" if public else request.url
-        if not validator.validate(url, request.form.to_dict(), signature):
+        
+        # Force HTTPS in URL since Twilio signs the public HTTPS URL
+        url = request.url
+        if url.startswith("http://"):
+            url = "https://" + url[len("http://"):]
+        
+        # Use form data with preserved duplicates for signature validation
+        params = request.form.to_dict(flat=False)
+        
+        if not validator.validate(url, params, signature):
+            current_app.logger.warning(
+                "Invalid Twilio signature",
+                extra={
+                    "url": url,
+                    "params_keys": list(params.keys()),
+                    "has_signature": bool(signature)
+                }
+            )
             return {"error": "invalid signature"}, 403
 
     from_number = request.form.get("From", "")

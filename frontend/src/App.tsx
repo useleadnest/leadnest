@@ -10,7 +10,7 @@ import { Settings } from './pages/Settings';
 import { Billing } from './pages/Billing';
 import SentryTest from './pages/SentryTest';
 import AILeadScoring from './pages/AILeadScoring';
-import ROIDashboard from './pages/ROIDashboard';
+// import ROIDashboard from './pages/ROIDashboard';
 import './index.css';
 
 export default function App() {
@@ -45,14 +45,14 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route
+          {/* <Route
             path="/roi-dashboard"
             element={
               <ProtectedRoute>
                 <ROIDashboard />
               </ProtectedRoute>
             }
-          />
+          /> */}
           <Route
             path="/settings"
             element={
