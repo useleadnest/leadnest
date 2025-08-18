@@ -1414,3 +1414,109 @@ def update_call_notes(call_id: str):
     except Exception as e:
         log.error(f"Update call notes error: {e}")
         return {"error": "Failed to update call notes"}, 500
+
+# ============================================================================
+# STRIPE ENDPOINTS - CRITICAL FOR SUBSCRIPTION FUNCTIONALITY
+# ============================================================================
+
+@api_bp.post("/stripe/webhook")
+def stripe_webhook():
+    """
+    Stripe webhook handler for subscription events
+    CRITICAL: Validates webhook signature and processes subscription updates
+    """
+    try:
+        payload = request.data
+        sig_header = request.headers.get('Stripe-Signature')
+        
+        # Get webhook secret from environment
+        webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET')
+        if not webhook_secret:
+            current_app.logger.error("STRIPE_WEBHOOK_SECRET not configured")
+            return {"error": "Webhook secret not configured"}, 500
+        
+        # Verify webhook signature
+        try:
+            import stripe
+            stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+            
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, webhook_secret
+            )
+        except ValueError as e:
+            current_app.logger.error(f"Invalid payload: {e}")
+            return {"error": "Invalid payload"}, 400
+        except stripe.error.SignatureVerificationError as e:
+            current_app.logger.error(f"Invalid signature: {e}")
+            return {"error": "Invalid signature"}, 400
+        except ImportError:
+            current_app.logger.error("Stripe library not installed")
+            return {"error": "Stripe not available"}, 500
+
+        # Process the event
+        current_app.logger.info(f"Stripe webhook event: {event['type']}")
+        
+        if event['type'] in ['customer.subscription.created', 
+                           'customer.subscription.updated', 
+                           'customer.subscription.deleted']:
+            # Handle subscription events
+            subscription = event['data']['object']
+            customer_id = subscription['customer']
+            status = subscription['status']
+            
+            current_app.logger.info(f"Subscription {subscription['id']} for customer {customer_id} is now {status}")
+            
+            # TODO: Update user subscription status in database
+            # This would require user lookup by stripe_customer_id
+            
+        elif event['type'] == 'invoice.payment_succeeded':
+            # Handle successful payments
+            invoice = event['data']['object']
+            current_app.logger.info(f"Payment succeeded for invoice {invoice['id']}")
+            
+        elif event['type'] == 'invoice.payment_failed':
+            # Handle failed payments
+            invoice = event['data']['object']
+            current_app.logger.warning(f"Payment failed for invoice {invoice['id']}")
+        
+        return {"status": "success"}, 200
+        
+    except Exception as e:
+        current_app.logger.exception(f"Stripe webhook error: {e}")
+        return {"error": "Webhook processing failed"}, 500
+
+@api_bp.post("/stripe/create-checkout")
+@require_auth
+def stripe_create_checkout():
+    """
+    Create Stripe checkout session for subscription
+    """
+    try:
+        import stripe
+        stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+        
+        if not stripe.api_key:
+            return {"error": "Stripe not configured"}, 500
+        
+        # Get user info from JWT token (implement based on your auth system)
+        # For now, using placeholder data
+        user_email = "user@example.com"  # TODO: Get from JWT
+        
+        # Create checkout session
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price': os.environ.get('STRIPE_PRICE_ID', 'price_1234'),  # TODO: Set in env
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url=f"{os.environ.get('FRONTEND_URL', 'https://useleadnest.com')}/dashboard?payment=success",
+            cancel_url=f"{os.environ.get('FRONTEND_URL', 'https://useleadnest.com')}/dashboard?payment=cancelled",
+            customer_email=user_email,
+        )
+        
+        return {"checkout_url": checkout_session.url}, 200
+        
+    except Exception as e:
+        current_app.logger.exception(f"Stripe checkout creation error: {e}")
+        return {"error": "Checkout creation failed"}, 500
