@@ -23,7 +23,7 @@ const Homepage: React.FC = () => {
 
   const handleBookDemo = () => {
     // Open Calendly booking in new window - use env var or fallback
-    const calendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/leadnest-demo';
+    const calendlyUrl = process.env.REACT_APP_CALENDLY_URL || 'https://calendly.com/leadnest-demo';
     window.open(calendlyUrl, '_blank');
   };
 

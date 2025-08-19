@@ -37,7 +37,7 @@ export const Settings: React.FC = () => {
   };
 
   const handleBookDemo = () => {
-    const calendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/leadnest-demo';
+    const calendlyUrl = process.env.REACT_APP_CALENDLY_URL || 'https://calendly.com/leadnest-demo';
     window.open(calendlyUrl, '_blank');
   };
 

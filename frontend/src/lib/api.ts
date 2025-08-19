@@ -1,5 +1,5 @@
 // API Client for LeadNest
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.useleadnest.com/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.useleadnest.com/api';
 
 interface Lead {
   id?: number;
@@ -113,6 +113,12 @@ export const Health = {
     const response = await fetch(`${API_BASE_URL.replace('/api', '')}/healthz`);
     return response.json();
   },
+  
+  ping: async () => {
+    const response = await fetch(`${API_BASE_URL.replace('/api', '')}/healthz`);
+    if (!response.ok) throw new Error('Ping failed');
+    return response.json();
+  }
 };
 
 export type { Lead, UserData };

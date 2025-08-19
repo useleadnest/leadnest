@@ -51,12 +51,12 @@ jobs:
 
       - name: Build
         env:
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-          VITE_ENV_NAME: ${{ secrets.VITE_ENV_NAME }}
+          REACT_APP_API_BASE_URL: ${{ secrets.REACT_APP_API_BASE_URL }}
+          REACT_APP_ENV_NAME: ${{ secrets.REACT_APP_ENV_NAME }}
         run: |
           echo "Building with:"
-          echo "VITE_API_BASE_URL: $VITE_API_BASE_URL"
-          echo "VITE_ENV_NAME: $VITE_ENV_NAME"
+          echo "REACT_APP_API_BASE_URL: $REACT_APP_API_BASE_URL"
+          echo "REACT_APP_ENV_NAME: $REACT_APP_ENV_NAME"
           npm run build
 
       - name: Deploy to Vercel
@@ -119,5 +119,5 @@ jobs:
             }
         env:
           VERCEL_PRODUCTION_URL: ${{ secrets.VERCEL_PRODUCTION_URL }}
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-          VITE_ENV_NAME: ${{ secrets.VITE_ENV_NAME }}
+          REACT_APP_API_BASE_URL: ${{ secrets.REACT_APP_API_BASE_URL }}
+          REACT_APP_ENV_NAME: ${{ secrets.REACT_APP_ENV_NAME }}

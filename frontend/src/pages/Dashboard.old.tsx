@@ -98,7 +98,7 @@ const Dashboard: React.FC = () => {
                 className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
                 onClick={async () => {
                   try {
-                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/seed-demo`, { method: 'POST' });
+                    const res = await fetch(`${process.env.REACT_APP_API_BASE_URL}/admin/seed-demo`, { method: 'POST' });
                     const json = await res.json();
                     alert(res.ok ? `Seeded: ${JSON.stringify(json)}` : `Failed: ${JSON.stringify(json)}`);
                   } catch (e) {
