@@ -53,7 +53,7 @@
 [Build Output - Should show:]
 ✅ Installing dependencies...
 ✅ pip install -r requirements.txt  
-✅ psycopg2-binary==2.9.9 installed successfully
+✅ psycopg[binary]==3.2.3 installed successfully
 ✅ Build completed successfully
 
 [Deploy Output - Should show:]
@@ -67,7 +67,7 @@
 ### ✅ GOOD - Build Logs
 ```
 Installing dependencies from requirements.txt...
-✅ psycopg2-binary==2.9.9
+✅ psycopg[binary]==3.2.3
 ✅ flask==3.0.3  
 ✅ gunicorn==22.0.0
 Build completed in 3m 42s
@@ -90,7 +90,10 @@ Starting command: gunicorn app.api:app --bind 0.0.0.0:10000...
    → Fix: Set Start Command to "gunicorn app.api:app..."
 
 ❌ psycopg2 compilation failed
-   → Fix: Already solved with psycopg2-binary
+   → Fix: Switched to psycopg[binary]==3.2.3 ✅
+
+❌ ModuleNotFoundError: No module named 'psycopg2'
+   → Fix: Updated settings.py to force psycopg3 ✅
 ```
 
 ---
