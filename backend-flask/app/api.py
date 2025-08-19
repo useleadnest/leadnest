@@ -186,6 +186,39 @@ def login():
     token = issue_token({"sub": email, "email": email})
     return {"token": token, "email": email}
 
+@limiter.limit("5/min")
+@api_bp.post("/auth/register")
+def register():
+    """User registration endpoint"""
+    try:
+        data = request.get_json() or {}
+        email = data.get("email", "").strip().lower()
+        password = data.get("password", "")
+        
+        # Validation
+        if not email:
+            return {"error": "email required"}, 400
+        if not password or len(password) < 6:
+            return {"error": "password must be at least 6 characters"}, 400
+        if "@" not in email or "." not in email:
+            return {"error": "valid email required"}, 400
+            
+        # For demo purposes, we just issue a token
+        # In production, you'd create user record, hash password, etc.
+        token = issue_token({"sub": email, "email": email})
+        
+        current_app.logger.info(f"User registered: {email}")
+        
+        return {
+            "token": token, 
+            "email": email,
+            "message": "Registration successful"
+        }, 201
+        
+    except Exception as e:
+        current_app.logger.exception(f"Registration error: {e}")
+        return {"error": "Registration failed"}, 500
+
 # ---------- Leads ----------
 @api_bp.get("/leads")
 @require_auth

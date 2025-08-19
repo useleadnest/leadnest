@@ -23,11 +23,28 @@ def create_app():
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
     app.config["PREFERRED_URL_SCHEME"] = "https"
 
-    # CORS - explicit headers for preflight sanity
-    CORS(app, 
-         resources={r"*": {"origins": settings.CORS_ORIGINS}}, 
-         supports_credentials=True,
-         allow_headers=["Authorization", "Content-Type", "X-Request-ID", "Idempotency-Key"])
+    # CORS - explicit configuration for production
+    allowed_origins = [
+        "https://useleadnest.com",
+        "https://www.useleadnest.com",
+    ]
+    
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": allowed_origins}},
+        supports_credentials=False,
+        allow_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        expose_headers=["Authorization"],
+        max_age=86400,
+    )
+
+    @app.after_request
+    def add_cors_cache_headers(resp):
+        # Some proxies strip max-age if not repeated
+        if resp.headers.get("Access-Control-Allow-Origin"):
+            resp.headers.setdefault("Access-Control-Max-Age", "86400")
+        return resp
 
     # Rate limiting
     limiter.init_app(app)

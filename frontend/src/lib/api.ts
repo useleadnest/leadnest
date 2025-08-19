@@ -1,5 +1,9 @@
 // API Client for LeadNest
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.useleadnest.com/api';
+const RAW_BASE = process.env.REACT_APP_API_BASE_URL; // must be: https://api.useleadnest.com/api
+if (!RAW_BASE) {
+  console.error("REACT_APP_API_BASE_URL is missing");
+}
+const BASE_URL = RAW_BASE?.replace(/\/+$/, "") ?? ""; // trim trailing slash
 
 interface Lead {
   id?: number;
@@ -17,7 +21,31 @@ interface UserData {
   subscription_status?: string;
 }
 
-// Core API function
+export async function apiFetch(path: string, init: RequestInit = {}) {
+  const url = `${BASE_URL}/${path.replace(/^\/+/, "")}`;
+  try {
+    const res = await fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init.headers || {}),
+      },
+      // credentials not required unless we set cookies. Keep 'same-origin' default.
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} ${res.statusText}: ${text.slice(0, 400)}`);
+    }
+    return res.headers.get("content-type")?.includes("application/json")
+      ? res.json()
+      : res.text();
+  } catch (e: any) {
+    console.error("apiFetch error:", { url, error: e?.message });
+    throw e;
+  }
+}
+
+// Core API function (legacy wrapper)
 export const api = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
   const token = localStorage.getItem('ln_token');
   const headers = {
@@ -26,30 +54,23 @@ export const api = async <T>(path: string, options: RequestInit = {}): Promise<T
     ...(options.headers || {}),
   };
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return apiFetch(path, {
     ...options,
     headers,
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API Error ${response.status}: ${errorText}`);
-  }
-
-  return response.json();
 };
 
 // Auth API
 export const Auth = {
   login: async (email: string, password: string): Promise<{ token: string }> => {
-    return api<{ token: string }>('/auth/login', {
+    return apiFetch('auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   },
 
   register: async (email: string, password: string): Promise<{ token: string }> => {
-    return api<{ token: string }>('/auth/register', {
+    return apiFetch('auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
@@ -67,7 +88,7 @@ export const Leads = {
     formData.append('file', file);
 
     const token = localStorage.getItem('ln_token');
-    const response = await fetch(`${API_BASE_URL}/leads/bulk`, {
+    const response = await fetch(`${BASE_URL}/leads/bulk`, {
       method: 'POST',
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -110,12 +131,12 @@ export const User = {
 // Health check
 export const Health = {
   check: async () => {
-    const response = await fetch(`${API_BASE_URL.replace('/api', '')}/healthz`);
+    const response = await fetch(`${BASE_URL.replace('/api', '')}/healthz`);
     return response.json();
   },
   
   ping: async () => {
-    const response = await fetch(`${API_BASE_URL.replace('/api', '')}/healthz`);
+    const response = await fetch(`${BASE_URL.replace('/api', '')}/healthz`);
     if (!response.ok) throw new Error('Ping failed');
     return response.json();
   }
