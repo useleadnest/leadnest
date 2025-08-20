@@ -1617,3 +1617,245 @@ def billing_checkout():
     Billing checkout endpoint - delegates to stripe_create_checkout
     """
     return stripe_create_checkout()
+
+
+# ========== LAUNCH MULTIPLIER ENDPOINTS ==========
+
+# Onboarding endpoints
+@api_bp.route('/launch-multiplier/onboarding/status', methods=['GET'])
+def get_onboarding_status():
+    """Get the current onboarding progress for a user."""
+    try:
+        from .models import OnboardingProgress
+        
+        # For now, use business_id=1. Later, get from JWT/session
+        business_id = request.args.get('business_id', 1, type=int)
+        user_id = request.args.get('user_id', 1, type=int)  # Temporary
+        
+        # Get onboarding steps
+        completed_steps = OnboardingProgress.query.filter_by(user_id=user_id).all()
+        completed_step_names = [step.step for step in completed_steps if step.completed_at]
+        
+        # Define all onboarding steps in order
+        all_steps = [
+            'connect_twilio',
+            'import_csv', 
+            'enable_auto_reply',
+            'send_test_sms',
+            'connect_calendly'
+        ]
+        
+        # Calculate progress
+        total_steps = len(all_steps)
+        completed_count = len(completed_step_names)
+        progress_percentage = int((completed_count / total_steps) * 100)
+        
+        # Determine next step
+        next_step = None
+        for step in all_steps:
+            if step not in completed_step_names:
+                next_step = step
+                break
+        
+        return jsonify({
+            'user_id': user_id,
+            'business_id': business_id,
+            'total_steps': total_steps,
+            'completed_steps': completed_count,
+            'progress_percentage': progress_percentage,
+            'next_step': next_step,
+            'completed_step_names': completed_step_names,
+            'all_steps': all_steps,
+            'is_complete': next_step is None
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get onboarding status: {str(e)}'}), 500
+
+
+@api_bp.route('/launch-multiplier/onboarding/complete-step', methods=['POST'])
+def complete_onboarding_step():
+    """Mark an onboarding step as complete."""
+    try:
+        from .models import OnboardingProgress, ActivityLog, User
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        user_id = data.get('user_id')
+        step = data.get('step')
+        step_data = data.get('data', {})
+        
+        if not user_id or not step:
+            return jsonify({'error': 'user_id and step are required'}), 400
+        
+        # Validate step name
+        valid_steps = ['connect_twilio', 'import_csv', 'enable_auto_reply', 'send_test_sms', 'connect_calendly']
+        if step not in valid_steps:
+            return jsonify({'error': f'Invalid step. Must be one of: {valid_steps}'}), 400
+        
+        # Get user
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check if step already exists
+        progress = OnboardingProgress.query.filter_by(user_id=user_id, step=step).first()
+        if not progress:
+            progress = OnboardingProgress(
+                user_id=user_id,
+                step=step
+            )
+            db.session.add(progress)
+        
+        # Mark as completed
+        progress.completed_at = datetime.utcnow()
+        progress.data = step_data
+        
+        # Log activity
+        activity = ActivityLog(
+            business_id=user.business_id,
+            user_id=user_id,
+            action='onboarding_step_completed',
+            description=f'Completed onboarding step: {step}',
+            extra_data={'step': step, 'data': step_data},
+            source='api'
+        )
+        db.session.add(activity)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'step': step,
+            'completed_at': progress.completed_at.isoformat(),
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to complete step: {str(e)}'}), 500
+
+
+# ROI endpoints
+@api_bp.route('/launch-multiplier/roi/calculate', methods=['POST'])
+def calculate_roi():
+    """Trigger ROI calculation for a business."""
+    try:
+        from .models import ROIReport
+        
+        data = request.get_json() or {}
+        business_id = data.get('business_id', 1)  # Temporary default
+        
+        # Create a simple ROI calculation for demo
+        business = Business.query.filter_by(id=business_id).first()
+        if not business:
+            return jsonify({'error': 'Business not found'}), 404
+        
+        # Create ROI report
+        roi_report = ROIReport(
+            business_id=business_id,
+            period_start=datetime.utcnow() - timedelta(days=30),
+            period_end=datetime.utcnow(),
+            leads_received=45,
+            leads_responded=38,
+            calls_booked=12,
+            deals_closed=7,
+            estimated_revenue=35000.0,
+            total_cost=2250.0,
+            roi_percentage=1455.6
+        )
+        
+        db.session.add(roi_report)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'business_id': business_id,
+            'roi_percentage': float(roi_report.roi_percentage),
+            'total_revenue': float(roi_report.estimated_revenue),
+            'total_cost': float(roi_report.total_cost),
+            'net_profit': float(roi_report.estimated_revenue) - float(roi_report.total_cost),
+            'lead_count': roi_report.leads_received,
+            'calculated_at': roi_report.created_at.isoformat()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to calculate ROI: {str(e)}'}), 500
+
+
+@api_bp.route('/launch-multiplier/roi/status/<int:business_id>', methods=['GET'])
+def get_roi_status(business_id):
+    """Get current ROI status and metrics for a business."""
+    try:
+        from .models import ROIReport
+        
+        # Get latest ROI calculation
+        roi_calc = ROIReport.query.filter_by(
+            business_id=business_id
+        ).order_by(ROIReport.created_at.desc()).first()
+        
+        if not roi_calc:
+            return jsonify({
+                'business_id': business_id,
+                'has_data': False,
+                'message': 'No ROI calculations found. Click "Calculate ROI" to generate your first report.'
+            })
+        
+        # Calculate freshness
+        now = datetime.utcnow()
+        calculated_hours_ago = (now - roi_calc.created_at).total_seconds() / 3600
+        is_fresh = calculated_hours_ago < 24
+        
+        net_profit = float(roi_calc.estimated_revenue or 0) - float(roi_calc.total_cost or 0)
+        
+        return jsonify({
+            'business_id': business_id,
+            'has_data': True,
+            'is_fresh': is_fresh,
+            'calculated_at': roi_calc.created_at.isoformat(),
+            'calculated_hours_ago': round(calculated_hours_ago, 1),
+            'period_start': roi_calc.period_start.isoformat() if roi_calc.period_start else None,
+            'period_end': roi_calc.period_end.isoformat() if roi_calc.period_end else None,
+            'metrics': {
+                'roi_percentage': float(roi_calc.roi_percentage or 0),
+                'total_revenue': float(roi_calc.estimated_revenue or 0),
+                'total_cost': float(roi_calc.total_cost or 0),
+                'net_profit': net_profit,
+                'lead_count': roi_calc.leads_received or 0,
+                'deals_closed': roi_calc.deals_closed or 0,
+                'conversion_rate': (roi_calc.deals_closed / roi_calc.leads_received * 100) if roi_calc.leads_received else 0
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get ROI status: {str(e)}'}), 500
+
+
+@api_bp.route('/launch-multiplier/health', methods=['GET'])
+def launch_multiplier_health():
+    """Health check for Launch Multiplier endpoints."""
+    try:
+        from .models import OnboardingProgress, ROIReport, User
+        
+        # Count stats
+        total_users = User.query.count()
+        total_onboarding = OnboardingProgress.query.count()
+        total_roi_reports = ROIReport.query.count()
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'stats': {
+                'total_users': total_users,
+                'onboarding_steps': total_onboarding,
+                'roi_reports': total_roi_reports
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500

@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: leadnest-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT wsgi:app
+    plan: starter
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: leadnest-db
+          property: connectionString
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SENTRY_DSN
+        sync: false
+      - key: CORS_ORIGINS
+        value: "https://useleadnest.com,https://www.useleadnest.com"
+
+databases:
+  - name: leadnest-db
+    plan: starter

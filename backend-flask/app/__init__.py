@@ -27,11 +27,27 @@ def create_app():
     allowed_origins = [
         "https://useleadnest.com",
         "https://www.useleadnest.com",
+        "https://leadnest-frontend-*.vercel.app",  # Allow Vercel previews
     ]
+    
+    # Add regex support for Vercel preview URLs
+    import re
+    def is_allowed_origin(origin):
+        if not origin:
+            return False
+        for pattern in allowed_origins:
+            if '*' in pattern:
+                # Convert glob pattern to regex
+                regex_pattern = pattern.replace('*', '.*')
+                if re.match(f"^{regex_pattern}$", origin):
+                    return True
+            elif origin == pattern:
+                return True
+        return False
     
     CORS(
         app,
-        resources={r"/api/*": {"origins": allowed_origins}},
+        resources={r"/api/*": {"origins": lambda origin, *args: is_allowed_origin(origin)}},
         supports_credentials=False,
         allow_headers=["Content-Type", "Authorization"],
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
